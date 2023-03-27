@@ -1,7 +1,7 @@
 #ifndef PAGE_TABLES_H
 #define PAGE_TABLES_H
 
-#include <rvh_test.h>
+#include <iommu_tests/iommu_tests.h>
 
 #define PAGE_SIZE 0x1000ULL     // 4kiB
 #define PT_SIZE (PAGE_SIZE)
@@ -49,7 +49,7 @@
 /* ------------------------------------------------------------- */
 
 // Base Supervisor Physical Address of 4-kiB pages
-#define TEST_PPAGE_BASE (MEM_BASE+(MEM_SIZE/2))     // 0x4000_0000 + 0x0800_0000 = 0x48000000
+#define TEST_PPAGE_BASE (MEM_BASE+(MEM_SIZE/2))     // 0x8000_0000 + 0x0800_0000 = 0x88000000
 
 // Base Guest Virtual Address of 4-kiB pages:
 // Independently of the base address in satp
@@ -61,141 +61,138 @@
 #define TEST_VPAGE_BASE (0x100000000)
 
 enum test_page { 
-    VSRWX_GURWX,
-    VSRWX_GURW,
-    VSRWX_GURX,
-    VSRWX_GUR,
-    VSRWX_GUX,
-    VSRW_GURWX,
-    VSRW_GURW,
-    VSRW_GURX,
-    VSRW_GUR,
-    VSRW_GUX,
-    VSRX_GURWX,
-    VSRX_GURW,
-    VSRX_GURX,
-    VSRX_GUR,
-    VSRX_GUX,
-    VSR_GURWX,
-    VSR_GURW,
-    VSR_GURX,
-    VSR_GUR,
-    VSR_GUX,
-    VSX_GURWX,
-    VSX_GURW,
-    VSX_GURX,
-    VSX_GUR,
-    VSX_GUX,
-    VSURWX_GRWX,
-    VSURWX_GRW,
-    VSURWX_GRX,
-    VSURWX_GR,
-    VSURWX_GX,
-    VSURW_GRWX,
-    VSURW_GRW,
-    VSURW_GRX,
-    VSURW_GR,
-    VSURW_GX,
-    VSURX_GRWX,
-    VSURX_GRW,
-    VSURX_GRX,
-    VSURX_GR,
-    VSURX_GX,
-    VSUR_GRWX,
-    VSUR_GRW,
-    VSUR_GRX,
-    VSUR_GR,
-    VSUR_GX,
-    VSUX_GRWX,
-    VSUX_GRW,
-    VSUX_GRX,
-    VSUX_GR,
-    VSUX_GX,
-    VSURWX_GURWX,
-    VSURWX_GURW,
-    VSURWX_GURX,
-    VSURWX_GUR,
-    VSURWX_GUX,
-    VSURW_GURWX,
-    VSURW_GURW,
-    VSURW_GURX,
-    VSURW_GUR,
-    VSURW_GUX,
-    VSURX_GURWX,
-    VSURX_GURW,
-    VSURX_GURX,
-    VSURX_GUR,
-    VSURX_GUX,
-    VSUR_GURWX,
-    VSUR_GURW,
-    VSUR_GURX,
-    VSUR_GUR,
-    VSUR_GUX,
-    VSUX_GURWX,
-    VSUX_GURW,
-    VSUX_GURX,
-    VSUX_GUR,
-    VSUX_GUX,
-    VSRWX_GRWX,
-    VSRWX_GRW,
-    VSRWX_GRX,
-    VSRWX_GR,
-    VSRWX_GX,
-    VSRW_GRWX,
-    VSRW_GRW,
-    VSRW_GRX,
-    VSRW_GR,
-    VSRW_GX,
-    VSRX_GRWX,
-    VSRX_GRW,
-    VSRX_GRX,
-    VSRX_GR,
-    VSRX_GX,
-    VSR_GRWX,
-    VSR_GRW,
-    VSR_GRX,
-    VSR_GR,
-    VSR_GX,
-    VSX_GRWX,
-    VSX_GRW,
-    VSX_GRX,
-    VSX_GR,
-    VSX_GX,
-    VSI_GI,
-    VSRWX_GI,
-    VSRW_GI,
-    VSI_GURWX,
-    VSI_GUX,
-    VSI_GUR,
-    VSI_GURW,
+    S1RWX_S2URWX,
+    S1RWX_S2URW,
+    S1RWX_S2URX,
+    S1RWX_S2UR,
+    S1RWX_S2UX,
+    S1RW_S2URWX,
+    S1RW_S2URW,
+    S1RW_S2URX,
+    S1RW_S2UR,
+    S1RW_S2UX,
+    S1RX_S2URWX,
+    S1RX_S2URW,
+    S1RX_S2URX,
+    S1RX_S2UR,
+    S1RX_S2UX,
+    S1R_S2URWX,
+    S1R_S2URW,
+    S1R_S2URX,
+    S1R_S2UR,
+    S1R_S2UX,
+    S1X_S2URWX,
+    S1X_S2URW,
+    S1X_S2URX,
+    S1X_S2UR,
+    S1X_S2UX,
+    S1URWX_S2RWX,
+    S1URWX_S2RW,
+    S1URWX_S2RX,
+    S1URWX_S2R,
+    S1URWX_S2X,
+    S1URW_S2RWX,
+    S1URW_S2RW,
+    S1URW_S2RX,
+    S1URW_S2R,
+    S1URW_S2X,
+    S1URX_S2RWX,
+    S1URX_S2RW,
+    S1URX_S2RX,
+    S1URX_S2R,
+    S1URX_S2X,
+    S1UR_S2RWX,
+    S1UR_S2RW,
+    S1UR_S2RX,
+    S1UR_S2R,
+    S1UR_S2X,
+    S1UX_S2RWX,
+    S1UX_S2RW,
+    S1UX_S2RX,
+    S1UX_S2R,
+    S1UX_S2X,
+    S1URWX_S2URWX,
+    S1URWX_S2URW,
+    S1URWX_S2URX,
+    S1URWX_S2UR,
+    S1URWX_S2UX,
+    S1URW_S2URWX,
+    S1URW_S2URW,
+    S1URW_S2URX,
+    S1URW_S2UR,
+    S1URW_S2UX,
+    S1URX_S2URWX,
+    S1URX_S2URW,
+    S1URX_S2URX,
+    S1URX_S2UR,
+    S1URX_S2UX,
+    S1UR_S2URWX,
+    S1UR_S2URW,
+    S1UR_S2URX,
+    S1UR_S2UR,
+    S1UR_S2UX,
+    S1UX_S2URWX,
+    S1UX_S2URW,
+    S1UX_S2URX,
+    S1UX_S2UR,
+    S1UX_S2UX,
+    S1RWX_S2RWX,
+    S1RWX_S2RW,
+    S1RWX_S2RX,
+    S1RWX_S2R,
+    S1RWX_S2X,
+    S1RW_S2RWX,
+    S1RW_S2RW,
+    S1RW_S2RX,
+    S1RW_S2R,
+    S1RW_S2X,
+    S1RX_S2RWX,
+    S1RX_S2RW,
+    S1RX_S2RX,
+    S1RX_S2R,
+    S1RX_S2X,
+    S1R_S2RWX,
+    S1R_S2RW,
+    S1R_S2RX,
+    S1R_S2R,
+    S1R_S2X,
+    S1X_S2RWX,
+    S1X_S2RW,
+    S1X_S2RX,
+    S1X_S2R,
+    S1X_S2X,
+    S1I_S2I,
+    S1RWX_S2I,
+    S1RW_S2I,
+    S1I_S2URWX,
+    S1I_S2UX,
+    S1I_S2UR,
+    S1I_S2URW,
     SCRATCHPAD,
     SWITCH1,
     SWITCH2,
+    IDMA_WRDEST,
+    S1RWX_S2URWX_MSI = 259,
     TOP = 511,
     TEST_PAGE_MAX
 };
 
 typedef uint64_t pte_t;
 
-extern pte_t hspt[][512];
-extern pte_t vspt[][512];
-extern pte_t hpt_root[];
-extern pte_t hpt[][512];
+extern pte_t s1pt[][512];
+extern pte_t s2pt_root[];
+extern pte_t s2pt[][512];
 
 // Returns the base address of the virtual page specified by 'tp'
-static inline uintptr_t vs_page_base(enum test_page tp){
+static inline uintptr_t virt_page_base(enum test_page tp){
     if(tp < TEST_PAGE_MAX){
         return (uintptr_t)(TEST_VPAGE_BASE+(tp*PAGE_SIZE));
     } else {
-        ERROR("trying to get invalid test page address");
+        ERROR("trying to get invalid test virtual page address");
     }
 }
 
-static inline uintptr_t hs_page_base(enum test_page tp){
-    return vs_page_base(tp);
-}
-
-static inline uintptr_t vs_page_base_limit(enum test_page tp){
+static inline uintptr_t s1_page_base_limit(enum test_page tp){
     if(tp < TEST_PAGE_MAX){
         return (uintptr_t)((0x20000000000-0x200000)+(tp*PAGE_SIZE));
     } else {
@@ -208,15 +205,13 @@ static inline uintptr_t phys_page_base(enum test_page tp){
     if(tp < TEST_PAGE_MAX){
         return (uintptr_t)(TEST_PPAGE_BASE+(tp*PAGE_SIZE));
     } else {
-        ERROR("trying to get invalid test page address");
+        ERROR("trying to get invalid test physical page address");
     }
 }
 
-void hspt_init();
-void vspt_init();
-void hpt_init();
-void hspt_switch();
-void vspt_switch();
-void hpt_switch();
+void s1pt_init();
+void s2pt_init();
+void s1pt_switch();
+void s2pt_switch();
 
 #endif /* PAGE_TABLES_H */

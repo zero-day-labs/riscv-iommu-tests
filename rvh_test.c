@@ -2,6 +2,8 @@
 
 //enum test_state {};
 
+// Test functions are manually assigned to the .test_table section
+// The test_table_size is calculated based on the start and the end of the section
 extern test_func_t _test_table, _test_table_size;
 test_func_t* test_table = &_test_table;
 size_t test_table_size = (size_t) &_test_table_size;
@@ -14,16 +16,23 @@ struct exception excpt;
 
 uint64_t ecall_args[2];
 
+// Environment Call
+// Generates an exception according to the originating priv mode
 uint64_t ecall(uint64_t a0, uint64_t a1)
 {
     ecall_args[0] = a0;
     ecall_args[1] = a1;
+
+    // volatile disable optimizations
 
     asm volatile("ecall" ::: "memory");
 
     return ecall_args[0];
 }
 
+/**
+ *  True if in Virtual-User (Guest Apps) or in Host-User (Host OS/Hypervisor apps) mode
+ */
 static inline bool is_user(int priv) {
     return priv == PRIV_VU || priv == PRIV_HU;
 }
@@ -103,17 +112,22 @@ static inline void lower_priv(unsigned priv){
 
 }
 
-
+/**
+ *  Go to a specified privilege mode 
+ */
 void goto_priv(int target_priv){
 
     static bool on_going = false;
 
     DEBUG("goto_priv: real = %s, target = %s, curr = %s",  priv_strs[real_priv], priv_strs[target_priv], priv_strs[curr_priv]);
 
+    // If target priv mode is User and current mode is User, go to M-mode
     if(is_user(target_priv) && is_user(curr_priv)) {
         goto_priv(PRIV_M);
     }
 
+    // real_priv is actually the current priv mode
+    // If the target priv mode is the real priv mode, there is no need to change
     if(real_priv == target_priv || target_priv >= PRIV_MAX){
         if(on_going)
             VERBOSE("...entered %s mode", priv_strs[target_priv]);
@@ -134,7 +148,6 @@ void goto_priv(int target_priv){
         on_going = false;
         lower_priv(target_priv);
     }
-
 }
 
 static bool is_inst_fault(uint64_t cause){

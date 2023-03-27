@@ -3,9 +3,11 @@
 
 #ifndef __ASSEMBLER__
 
+// "Stringize" s
 #define CSR_STR(s) _CSR_STR(s)
 #define _CSR_STR(s) #s
 
+// Read value from CSR
 #define CSRR(csr)                                     \
     ({                                                \
         uint64_t _temp;                               \
@@ -14,10 +16,15 @@
         _temp;                                        \
     })
 
+// Write rs to csr register 
 #define CSRW(csr, rs) \
     asm volatile("csrw  " CSR_STR(csr) ", %0\n\r" ::"rK"(rs) : "memory")
+
+// Set all bits of csr register that are set in rs
 #define CSRS(csr, rs) \
     asm volatile("csrs  " CSR_STR(csr) ", %0\n\r" ::"rK"(rs) : "memory")
+
+// Clear all bits of csr register that are set in rs
 #define CSRC(csr, rs) \
     asm volatile("csrc  " CSR_STR(csr) ", %0\n\r" ::"rK"(rs) : "memory")
 

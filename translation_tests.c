@@ -16,55 +16,77 @@ static inline void touch(uintptr_t addr){
 
 bool two_stage_translation(){
     
+    // Print the name of the test and create test_status variable
     TEST_START();
 
+    // Get the base address of two memory pages for each stage
     uintptr_t addr1 = phys_page_base(SWITCH1);
     uintptr_t addr2 = phys_page_base(SWITCH2);
     uintptr_t vaddr1 = vs_page_base(SWITCH1);
     uintptr_t vaddr2 = vs_page_base(SWITCH2);
-    write64(addr1, 0x11);
-    write64(addr2, 0x22);
+
+    // Write random values to memory before configuring two-stage translation
+    // At this point, both stages are in Bare mode
+    write64(addr1, 0x11);   // 0x..._0001_0001
+    write64(addr2, 0x22);   // 0x..._0010_0010
 
     /**
      * Setup hyp page_tables.
      */
-    goto_priv(PRIV_HS);
-    hspt_init();
-    hpt_init();
+    goto_priv(PRIV_HS); // go to HS-mode
+    hspt_init();        // setup satp and first-stage PTEs
+    hpt_init();         // setup hgatp and second-stage PTEs
 
     /**
      * Setup guest page tables.
      */
-    goto_priv(PRIV_VS);
-    vspt_init();
+    goto_priv(PRIV_VS); // go to VS-mode
+    vspt_init();        // setup satp and first-stage PTEs
 
+    //? Aren't we configuring satp twice?
+
+    // Read from virtual addresses.
+    /**
+     *  Since we configured both first and second-stage translation,
+     *  vaddr1 should map to addr1 and vaddr2 should map to addr2
+     */
     bool check1 = read64(vaddr1) == 0x11;
     bool check2 = read64(vaddr2) == 0x22;
     TEST_ASSERT("vs gets right values", check1 && check2);
     
+    // Swap two PTEs from second-stage page tables
     goto_priv(PRIV_HS);
     hpt_switch();
+
+    // Invalidate TLB
     hfence();
     goto_priv(PRIV_VS);
+
+    // Check if reading from virtual addresses gives swapped values (swapped mappings)
     check1 = read64(vaddr1) == 0x22;
-    check2 = read64(vaddr2) == 0x11;   
+    check2 = read64(vaddr2) == 0x11;
     // INFO("0%lx 0x%lx", read64(vaddr1), read64(vaddr2));
     TEST_ASSERT("vs gets right values after changing 2nd stage pt", check1 && check2);
 
+    // Swap two PTEs from first-stage page tables and invalidate TLB
     vspt_switch();
     sfence();
+
+    // Swapping PTEs for both translation stages maps V to P as before
     check1 = read64(vaddr1) == 0x11;
-    check2 = read64(vaddr2) == 0x22;   
+    check2 = read64(vaddr2) == 0x22;
     TEST_ASSERT("vs gets right values after changing 1st stage pt", check1 && check2);
 
-    goto_priv(PRIV_M); 
+    // Try to read using a GPA that is not mapped to any SPA.
+    // The result should be a Guest Page Fault exception.
+    goto_priv(PRIV_M);
     CSRS(medeleg, 1ull << CAUSE_LGPF);
     goto_priv(PRIV_VS);
     TEST_SETUP_EXCEPT();
-    read64(vs_page_base(VSRWX_GI));    
+    read64(vs_page_base(VSRWX_GI));     //? Aren't we reading with a GPA here?
     TEST_ASSERT(
-        "load guest page fault on unmapped address", 
-        excpt.triggered == true && 
+        "load guest page fault on unmapped address",
+        excpt.triggered == true &&
         excpt.cause == CAUSE_LGPF &&
         excpt.tval2 == (vs_page_base(VSRWX_GI) >> 2) &&
         excpt.priv == PRIV_HS &&
@@ -75,7 +97,7 @@ bool two_stage_translation(){
     TEST_SETUP_EXCEPT();
     TEST_EXEC_EXCEPT(vs_page_base(VSRWX_GI)); 
     TEST_ASSERT(
-        "instruction guest page fault on unmapped 2-stage address", 
+        "instruction guest page fault on unmapped 2-stage address",
         excpt.triggered == true && 
         excpt.cause == CAUSE_IGPF &&
         excpt.tval2 == (vs_page_base(VSRWX_GI) >> 2) &&
@@ -110,6 +132,7 @@ bool second_stage_only_translation(){
      */
     TEST_START();
 
+
     uintptr_t addr1 = phys_page_base(SWITCH1);
     uintptr_t addr2 = phys_page_base(SWITCH2);
     uintptr_t vaddr1 = vs_page_base(SWITCH1);
@@ -127,12 +150,14 @@ bool second_stage_only_translation(){
     hspt_init();
     hpt_init();
     
+    // Read using mapped virtual addresses
     goto_priv(PRIV_VS);
     TEST_SETUP_EXCEPT();
     bool check1 = read64(vaddr1) == 0x11;
     bool check2 = read64(vaddr2) == 0x22;
     TEST_ASSERT("vs gets right values", excpt.triggered == false && check1 && check2);
 
+    // Swap second-stage PTEs, invalidate TLB, and check if translated addresses swapped
     hpt_switch();
     sfence();
     TEST_SETUP_EXCEPT();
@@ -140,6 +165,7 @@ bool second_stage_only_translation(){
     check2 = read64(vaddr2) == 0x11;   
     TEST_ASSERT("vs gets right values after changing pt", excpt.triggered == false && check1 && check2);
 
+    // Try to read using an unmapped VAddr
     TEST_SETUP_EXCEPT();
     (void) read64(vs_page_base(VSRWX_GI));  
     TEST_ASSERT(

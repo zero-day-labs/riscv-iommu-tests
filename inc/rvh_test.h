@@ -13,10 +13,17 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+/**
+ *  LOG_LEVEL should be passed through MAKE.
+ *  Default value of LOG_INFO is defined
+ */
 #ifndef LOG_LEVEL
 #define LOG_LEVEL   LOG_INFO
 #endif
 
+/**
+ *  Colors of log messages 
+ */
 #define CDFLT  "\x1B[0m"
 #define CRED  "\x1B[31m"
 #define CGRN  "\x1B[32m"
@@ -26,6 +33,9 @@
 #define CCYN  "\x1B[36m"
 #define CWHT  "\x1B[37m"
 
+/**
+ *  Level of log messages
+ */
 #define LOG_NONE      (0)	
 #define LOG_ERROR	  (1)
 #define LOG_INFO      (2)
@@ -34,6 +44,8 @@
 #define LOG_VERBOSE   (5)
 #define LOG_DEBUG     (6)
 
+// Define macro to print error logs, function name and source code line. Then exit normally and freeze execution.
+// If log level is lower than error, don't print anything. Simply exit with -1 and freeze execution.
 #if LOG_LEVEL >= LOG_ERROR
 # define ERROR(str...)	{\
     printf(CRED "ERROR: " CDFLT str );\
@@ -45,30 +57,35 @@
 # define ERROR(...) { exit(-1); while(1); }
 #endif
 
+// Define macro to print info logs if sufficient log level
 #if LOG_LEVEL >= LOG_INFO
 # define INFO(str...)	{ printf(str); printf("\n"); }
 #else
 # define INFO(...)
 #endif
 
+// Define macro to print detail logs if sufficient log level
 #if LOG_LEVEL >= LOG_DETAIL
 # define DETAIL(str...)	{ printf(str); printf("\n"); }
 #else
 # define DETAIL(...)
 #endif
 
+// Define macro to print warning logs if sufficient log level
 #if LOG_LEVEL >= LOG_WARNING
 # define WARN(str...)	{ printf(CYEL "WARNING: " CDFLT str); printf("\n"); }
 #else
 # define WARN(...)
 #endif
 
+// Define macro to print verbose logs if sufficient log level
 #if LOG_LEVEL >= LOG_VERBOSE
 # define VERBOSE(str...)	{ printf("VERBOSE: " str); printf("\n"); }
 #else
 # define VERBOSE(...)
 #endif
 
+// Define macro to print debug logs if sufficient log level
 #if LOG_LEVEL >= LOG_DEBUG
 # define DEBUG(str...)	{ printf("DEBUG: " str); printf("\n"); }
 #else
@@ -106,12 +123,16 @@ typedef bool (*test_func_t)();
 extern test_func_t* test_table;
 extern size_t test_table_size;
 
+// Print the name of the current test (function)
+// Declare test status with default value of true
 #define TEST_START()\
     const char* __test_name = __func__;\
     bool test_status = true;\
     if(LOG_LEVEL >= LOG_INFO) printf(CBLU "%-70s" CDFLT, __test_name);\
     if(LOG_LEVEL >= LOG_DETAIL) printf("\n");
 
+// section key places the function code in the specified section (.test_table)
+// used key is used to generate code for the function even if it is not referenced
 #define TEST_REGISTER(test)\
     bool test();\
     static test_func_t test ## func __attribute__((section(".test_table"), used)) = test;
@@ -159,7 +180,8 @@ extern size_t test_table_size;
     );\
 }
 
-
+// Check and print final status of the test.
+// Reset CPU by writing 
 #define TEST_END(test) {\
 failed:\
     if(LOG_LEVEL >= LOG_INFO && LOG_LEVEL < LOG_VERBOSE){\

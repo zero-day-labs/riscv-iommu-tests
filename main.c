@@ -40,24 +40,35 @@ bool check_csr_field_spec(){
     TEST_END();
 }
 
+/**
+ *   Check bit 7 of misa CSR
+ */
 bool check_misa_h(){
 
+    // Print "check_misa_h"
     TEST_START();
 
+    // Read value from misa to restore later
     uint64_t misa = CSRR(misa);
+    // Set bit 7 of misa (Hypervisor Extension)
     CSRS(misa, (1ULL << 7));
 
+    // Read misa and test bit 7
     bool hyp_ext_present = CSRR(misa) & (1ULL << 7);
+
+    // If bit 7 was not set, hypervisor extension is not present
     TEST_ASSERT("check h bit after setting it",  hyp_ext_present, "hypervisor extensions not present");
 
     if(!hyp_ext_present)
         return false;
 
+    // Bit was set. Try to clear it to check whether it is hardwired to one
     CSRC(misa, (1ULL << 7));
     if(((CSRR(misa) & (1ULL << 7)))){
         VERBOSE("misa h bit is hardwired");
     }
 
+    // Restore original value of misa
     CSRW(misa, misa);
 
     TEST_END();
@@ -65,10 +76,16 @@ bool check_misa_h(){
 
 void main(){
 
-    INFO("risc-v hypervisor extensions tests");
+    INFO("RISC-V Hypervisor Extensions tests");
 
+    // Check for bit 7 of misa CSR
     if(check_misa_h()){
+
+        // Reset CPU
         reset_state();
+
+        // Test functions are manually assigned to the .test_table 
+        // section in the test_register.c file using the TEST_REGISTER macro
         for(int i = 0; i < test_table_size; i++)
             test_table[i]();
     }

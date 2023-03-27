@@ -1,0 +1,99 @@
+#ifndef IOMMU_TESTS_H
+#define IOMMU_TESTS_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <csrs.h>
+#include <instructions.h>
+#include <platform.h>
+#include <rvh_test.h>
+#include <iommu_tests/iommu_pts.h>
+
+// Base address of the IOMMU Programming Interface
+#define IOMMU_BASE_ADDR             0x50010000ULL
+
+// Register Offsets
+#define IOMMU_CAPABILITIES_OFFSET   0x0ULL
+#define IOMMU_FCTL_OFFSET           0x8ULL
+#define IOMMU_DDTP_OFFSET           0x10ULL
+#define IOMMU_CQB_OFFSET            0x18ULL
+#define IOMMU_CQH_OFFSET            0x20ULL
+#define IOMMU_CQT_OFFSET            0x24ULL
+#define IOMMU_FQB_OFFSET            0x28ULL
+#define IOMMU_FQH_OFFSET            0x30ULL
+#define IOMMU_FQT_OFFSET            0x34ULL
+#define IOMMU_CQCSR_OFFSET          0x48ULL
+#define IOMMU_FQCSR_OFFSET          0x4cULL
+#define IOMMU_IPSR_OFFSET           0x54ULL
+#define IOMMU_ICVEC_OFFSET          0x2f8ULL
+#define IOMMU_MSI_ADDR_0_OFFSET     0x300ULL
+#define IOMMU_MSI_DATA_0_OFFSET     0x308ULL
+#define IOMMU_MSI_VEC_CTL_0_OFFSET  0x30cULL
+#define IOMMU_MSI_ADDR_1_OFFSET     0x310ULL
+#define IOMMU_MSI_DATA_1_OFFSET     0x318ULL
+#define IOMMU_MSI_VEC_CTL_1_OFFSET  0x31cULL
+#define IOMMU_MSI_ADDR_2_OFFSET     0x320ULL
+#define IOMMU_MSI_DATA_2_OFFSET     0x328ULL
+#define IOMMU_MSI_VEC_CTL_2_OFFSET  0x32cULL
+#define IOMMU_MSI_ADDR_3_OFFSET     0x330ULL
+#define IOMMU_MSI_DATA_3_OFFSET     0x338ULL
+#define IOMMU_MSI_VEC_CTL_3_OFFSET  0x33cULL
+#define IOMMU_MSI_ADDR_4_OFFSET     0x340ULL
+#define IOMMU_MSI_DATA_4_OFFSET     0x348ULL
+#define IOMMU_MSI_VEC_CTL_4_OFFSET  0x34cULL
+#define IOMMU_MSI_ADDR_5_OFFSET     0x350ULL
+#define IOMMU_MSI_DATA_5_OFFSET     0x358ULL
+#define IOMMU_MSI_VEC_CTL_5_OFFSET  0x35cULL
+#define IOMMU_MSI_ADDR_6_OFFSET     0x360ULL
+#define IOMMU_MSI_DATA_6_OFFSET     0x368ULL
+#define IOMMU_MSI_VEC_CTL_6_OFFSET  0x36cULL
+#define IOMMU_MSI_ADDR_7_OFFSET     0x370ULL
+#define IOMMU_MSI_DATA_7_OFFSET     0x378ULL
+#define IOMMU_MSI_VEC_CTL_7_OFFSET  0x37cULL
+#define IOMMU_MSI_ADDR_8_OFFSET     0x380ULL
+#define IOMMU_MSI_DATA_8_OFFSET     0x388ULL
+#define IOMMU_MSI_VEC_CTL_8_OFFSET  0x38cULL
+#define IOMMU_MSI_ADDR_9_OFFSET     0x390ULL
+#define IOMMU_MSI_DATA_9_OFFSET     0x398ULL
+#define IOMMU_MSI_VEC_CTL_9_OFFSET  0x39cULL
+#define IOMMU_MSI_ADDR_10_OFFSET    0x3a0ULL
+#define IOMMU_MSI_DATA_10_OFFSET    0x3a8ULL
+#define IOMMU_MSI_VEC_CTL_10_OFFSET 0x3acULL
+#define IOMMU_MSI_ADDR_11_OFFSET    0x3b0ULL
+#define IOMMU_MSI_DATA_11_OFFSET    0x3b8ULL
+#define IOMMU_MSI_VEC_CTL_11_OFFSET 0x3bcULL
+#define IOMMU_MSI_ADDR_12_OFFSET    0x3c0ULL
+#define IOMMU_MSI_DATA_12_OFFSET    0x3c8ULL
+#define IOMMU_MSI_VEC_CTL_12_OFFSET 0x3ccULL
+#define IOMMU_MSI_ADDR_13_OFFSET    0x3d0ULL
+#define IOMMU_MSI_DATA_13_OFFSET    0x3d8ULL
+#define IOMMU_MSI_VEC_CTL_13_OFFSET 0x3dcULL
+#define IOMMU_MSI_ADDR_14_OFFSET    0x3e0ULL
+#define IOMMU_MSI_DATA_14_OFFSET    0x3e8ULL
+#define IOMMU_MSI_VEC_CTL_14_OFFSET 0x3ecULL
+#define IOMMU_MSI_ADDR_15_OFFSET    0x3f0ULL
+#define IOMMU_MSI_DATA_15_OFFSET    0x3f8ULL
+#define IOMMU_MSI_VEC_CTL_15_OFFSET 0x3fcULL
+
+#define IOMMU_REG_ADDR(OFF)     (IOMMU_BASE_ADDR + OFF)
+
+// Base address of the iDMA programming interface
+#define IDMA_BASE_ADDR             0x50000000ULL
+
+// Register offsets
+#define IDMA_SRC_ADDR   0x0ULL
+#define IDMA_DEST_ADDR  0x8ULL
+#define IDMA_N_BYTES    0x10ULL
+#define IDMA_CONFIG     0x18ULL
+#define IDMA_STATUS     0x20ULL
+#define IDMA_NEXT_ID    0x28ULL
+#define IDMA_DONE       0x30ULL
+
+#define IDMA_REG_ADDR(OFF)      (IDMA_BASE_ADDR + OFF)
+
+
+#endif /* IOMMU_TESTS_H */
