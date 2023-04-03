@@ -31,9 +31,9 @@ pre_targets += clean_objs
 endif
 
 TARGET := $(build_dir)/rvh_test
-c_srcs := main.c page_tables.c rvh_test.c interrupt_tests.c\
-	translation_tests.c	test_register.c virtual_instruction.c\
-	hfence_tests.c wfi_tests.c tinst_tests.c\
+c_srcs := main.c iommu_pts.c rvh_test.c command_queue.c\
+	iommu_translation_tests.c test_register.c device_contexts.c\
+	fault_queue.c msi_pts.c\
 	$(addprefix $(plat_dir)/, $(notdir $(wildcard $(plat_dir)/*.c)))
 asm_srcs := boot.S handlers.S  $(wildcard $(plat_dir)/*.S)
 ld_file:=linker.ld

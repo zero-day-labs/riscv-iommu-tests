@@ -18,7 +18,7 @@
  * -    The flat MSI PT is indexed using this IF number as follows: MSI PTE address = (msiptp.ppn << 12) | (IFN << 4)
  */
 
-#include <iommu_tests/msi_pts.h>
+#include <msi_pts.h>
 
 // 32 MSI PTEs, each PTE is 16-bytes, base address aligned to 4-kiB
 // When having more than 1 device, it must be upgraded to a 2-dimensional array

@@ -1,9 +1,8 @@
 #ifndef PAGE_TABLES_H
 #define PAGE_TABLES_H
 
-#include <iommu_tests/iommu_tests.h>
+#include <iommu_tests.h>
 
-#define PAGE_SIZE 0x1000ULL     // 4kiB
 #define PT_SIZE (PAGE_SIZE)
 #define PAGE_ADDR_MSK (~(PAGE_SIZE - 1))  // ... 1111 1111 0000 0000 0000
 #define PAGE_SHIFT (12)
@@ -173,11 +172,9 @@ enum test_page {
     SWITCH2,
     IDMA_WRDEST,
     S1RWX_S2URWX_MSI = 259,
-    TOP = 511,
+    PT_TOP = 511,
     TEST_PAGE_MAX
 };
-
-typedef uint64_t pte_t;
 
 extern pte_t s1pt[][512];
 extern pte_t s2pt_root[];

@@ -1,7 +1,7 @@
 #ifndef MSI_PAGE_TABLES_H
 #define MSI_PAGE_TABLES_H
 
-#include <iommu_tests/iommu_tests.h>
+#include <iommu_tests.h>
 
 // Number of entries of the MSI Page Table (POT, associated with N of set bits in the MSI mask)
 #define MSI_N_ENTRIES       (32)

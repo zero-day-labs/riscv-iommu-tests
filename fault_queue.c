@@ -4,7 +4,7 @@
  *  -   
  */
 
-#include <iommu_tests/fault_queue.h>
+#include <fault_queue.h>
 
 // N_entries * 32 bytes
 uint64_t fault_queue[FQ_N_ENTRIES * 4 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
@@ -21,12 +21,12 @@ void fq_init()
     write64(fqb_addr, fqb);
 
     // Set fqh to zero
-    write64(fqh_addr, 0);
+    write32(fqh_addr, 0);
 
-    // Write 1 to fqcsr.cqen to enable the CQ
+    // Write 1 to fqcsr.fqen to enable the FQ
     // INFO: Interrupts disabled
-    write64(fqcsr_addr, 1);
+    write32(fqcsr_addr, FQCSR_FQEN);
 
     // Poll fqcsr.fqon until it reads 1
-    while (!(read64(fqcsr_addr) & FQCSR_FQON));
+    while (!(read32(fqcsr_addr) & FQCSR_FQON));
 }

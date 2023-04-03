@@ -4,7 +4,7 @@
  *  -   
  */
 
-#include <iommu_tests/command_queue.h>
+#include <command_queue.h>
 
 // N_entries * 16 bytes
 uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
@@ -21,13 +21,13 @@ void cq_init()
     write64(cqb_addr, cqb);
 
     // Set cqt to zero
-    write64(cqt_addr, 0);
+    write32(cqt_addr, 0);
 
     // Write 1 to cqcsr.cqen to enable the CQ
     // INFO: Interrupts disabled
-    write64(cqcsr_addr, 1);
+    write32(cqcsr_addr, CQCSR_CQEN);
 
     // Poll cqcsr.cqon until it reads 1
-    while (!(read64(cqcsr_addr) & CQCSR_CQON));
+    while (!(read32(cqcsr_addr) & CQCSR_CQON));
 }
 

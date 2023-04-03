@@ -1,4 +1,4 @@
-#include <iommu_tests/iommu_tests.h>
+#include <iommu_pts.h>
 
 
 #if ((MEM_BASE & (SUPERPAGE_SIZE(0)-1)) != 0)
@@ -131,7 +131,7 @@ struct {
     [SWITCH2]           =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
     [IDMA_WRDEST]       =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
     [S1RWX_S2URWX_MSI]  =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
-    [TOP]               =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
+    [PT_TOP]            =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
 };      
 
 // 6x512 PTEs

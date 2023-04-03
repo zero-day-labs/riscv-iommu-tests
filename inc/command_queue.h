@@ -1,7 +1,7 @@
 #ifndef COMMAND_QUEUE_H
 #define COMMAND_QUEUE_H
 
-#include <iommu_tests/iommu_tests.h>
+#include <iommu_tests.h>
 
 // Number of entries in the CQ. Must be POT
 #define CQ_N_ENTRIES    (64 )
@@ -14,14 +14,14 @@
 #define CQB_PPN_OFF     (10)
 
 // cqcsr masks
-#define CQCSR_CQEN          (1ULL << 0)
-#define CQCSR_CIE           (1ULL << 1)
-#define CQCSR_CQMF          (1ULL << 8)
-#define CQCSR_CMD_TO        (1ULL << 9)
-#define CQCSR_CMD_ILL       (1ULL << 10)
-#define CQCSR_FENCE_W_IP    (1ULL << 11)
-#define CQCSR_CQON          (1ULL << 16)
-#define CQCSR_BUSY          (1ULL << 17)
+#define CQCSR_CQEN          (1UL << 0)
+#define CQCSR_CIE           (1UL << 1)
+#define CQCSR_CQMF          (1UL << 8)
+#define CQCSR_CMD_TO        (1UL << 9)
+#define CQCSR_CMD_ILL       (1UL << 10)
+#define CQCSR_FENCE_W_IP    (1UL << 11)
+#define CQCSR_CQON          (1UL << 16)
+#define CQCSR_BUSY          (1UL << 17)
 
 // TODO: If using this struct, update fields to the current spec
 typedef union {
