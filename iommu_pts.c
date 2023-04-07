@@ -184,6 +184,7 @@ void s1pt_init(){
         PTE_V | (((uintptr_t)&s1pt[3][0]) >> 2);
 
     addr = TEST_VPAGE_BASE;
+    // addr = TEST_PPAGE_BASE;
 
     //# Fill s1pt[3][i] with 4-kiB PTEs
     for(int i = 0; i < TEST_PAGE_MAX; i++){

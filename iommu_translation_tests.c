@@ -102,7 +102,7 @@ bool idma_only(){
     //# Check first transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
     bool check = (read64(write_paddr1) == 0x11);
-    TEST_ASSERT("iDMA succesfully copied the first value to the desired position in memory", check);
+    TEST_ASSERT("iDMA single-beat: First Transfer", check);
 
     /*------------- SECOND TRANSFER --------------*/
 
@@ -127,7 +127,7 @@ bool idma_only(){
     //# Check second transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
     check = (read64(write_paddr2) == 0x22);
-    TEST_ASSERT("iDMA succesfully copied the second value to the desired position in memory", check);
+    TEST_ASSERT("iDMA single-beat: Second Transfer", check);
 
     TEST_END();
 }
@@ -505,29 +505,29 @@ bool both_stages_bare(){
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
-    uintptr_t read_paddr1 = phys_page_base(SWITCH1);
-    uintptr_t read_vaddr1 = virt_page_base(SWITCH1);
-    uintptr_t read_paddr2 = phys_page_base(SWITCH2);
-    uintptr_t read_vaddr2 = virt_page_base(SWITCH2);
+    uintptr_t read_paddr1 = phys_page_base(S1RWX_S2URWX);
+    uintptr_t read_paddr2 = phys_page_base(S1RWX_S2URW);
+    uintptr_t read_paddr3 = phys_page_base(S1RWX_S2URX);
+    uintptr_t read_paddr4 = phys_page_base(S1RWX_S2UR);
     // and others for the destination address where the iDMA will write the read values
-    uintptr_t write_paddr1 = phys_page_base(IDMA_WRDEST);
-    uintptr_t write_vaddr1 = virt_page_base(IDMA_WRDEST);
-    uintptr_t write_paddr2 = phys_page_base(SCRATCHPAD);
-    uintptr_t write_vaddr2 = virt_page_base(SCRATCHPAD);
+    uintptr_t write_paddr1 = phys_page_base(S1X_S2URW);
+    uintptr_t write_paddr2 = phys_page_base(S1X_S2URX);
+    uintptr_t write_paddr3 = phys_page_base(S1X_S2UR);
+    uintptr_t write_paddr4 = phys_page_base(S1X_S2UX);
 
     //# Write known values to memory
     // Write some values to memory using physical addresses (Core MMU in bare mode).
     // The iDMA will read these values using the corresponding physical addresses.
     INFO("Writing known values to memory through physical addresses");
-    printf("[%X] = 0x11\n", read_paddr1);
-    printf("[%X] = 0x22\n", read_paddr2);
-    write64(read_paddr1, 0x11);   // 0x..._0001_0001
-    write64(read_paddr2, 0x22);   // 0x..._0010_0010
+    write64(read_paddr1, 0x11);
+    write64(read_paddr2, 0x22);
+    write64(read_paddr3, 0x33);
+    write64(read_paddr4, 0x44);
     INFO("Clearing destination address where iDMA will write");
-    printf("[%X] = 0x00\n", write_paddr1);
-    printf("[%X] = 0x00\n", write_paddr2);
-    write64(write_paddr1, 0x00);   // Clear
-    write64(write_paddr2, 0x00);   // Clear
+    write64(write_paddr1, 0x00);
+    write64(write_paddr2, 0x00);
+    write64(write_paddr3, 0x00);
+    write64(write_paddr4, 0x00);
 
     //# Configure Page Tables for both translation stages in memory
     // Allocate various buffers to work as multi-level page tables.
@@ -613,6 +613,438 @@ bool both_stages_bare(){
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
     bool check = (read64(write_paddr1) == 0x11);
     TEST_ASSERT("iDMA succesfully copied the first value to the desired position in memory", check);
+
+    /*------- SECOND TRANSFER -------*/
+
+    INFO("Configuring iDMA module for SECOND TRANSFER")
+    write64(idma_src, (uint64_t)read_paddr2);   // Source address
+    write64(idma_dest, (uint64_t)write_paddr2); // Destination address
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("Second Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("Second transfer finished!");
+
+    //# Check second transfer
+    // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    check = (read64(write_paddr2) == 0x22);
+    TEST_ASSERT("iDMA succesfully copied the second value to the desired position in memory", check);
+
+    /*------- THIRD TRANSFER -------*/
+
+    INFO("Configuring iDMA module for THIRD TRANSFER")
+    write64(idma_src, (uint64_t)read_paddr3);   // Source address
+    write64(idma_dest, (uint64_t)write_paddr3); // Destination address
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("Third Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("Third transfer finished!");
+
+    //# Check second transfer
+    // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    check = (read64(write_paddr3) == 0x33);
+    TEST_ASSERT("iDMA succesfully copied the third value to the desired position in memory", check);
+
+    /*------- FOURTH TRANSFER -------*/
+
+    INFO("Configuring iDMA module for FOURTH TRANSFER")
+    write64(idma_src, (uint64_t)read_paddr4);   // Source address
+    write64(idma_dest, (uint64_t)write_paddr4); // Destination address
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("Fourth Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("Fourth transfer finished!");
+
+    //# Check second transfer
+    // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    check = (read64(write_paddr4) == 0x44);
+    TEST_ASSERT("iDMA succesfully copied the fourth value to the desired position in memory", check);
+
+    TEST_END();
+}
+
+bool two_stage_translation(){
+
+    // Print the name of the test and create test_status variable
+    TEST_START();
+
+    // The IOMMU should be in bare mode (ddtp.iommu_mode = 0) by default, 
+    // so we should be able to read and write using physical addresses
+
+    //# Setup the Command Queue:
+    // Allocate a buffer of N (POT) entries (16-bytes each). 
+    // This buffer must be alligned to the greater of two values: 4-kiB or N x 16 bytes.
+    // Configure cqb with the queue size as log2(N) and the base address of the buffer.
+    // Set cqt to zero.
+    // Enable the CQ by writing 1 to cqcsr.cqen, poll cqcsr.cqon until it reads 1.
+    INFO("Configuring CQ");
+    cq_init();
+
+    //# Setup the Fault Queue:
+    // Allocate a buffer of N (POT) entries (32-bytes each).
+    // This buffer must be alligned to the greater of two values: 4-kiB or N x 32 bytes.
+    // Configure fqb with the queue size as log2(N) and the base address of the buffer.
+    // Set fqh to zero.
+    // Enable the FQ by writing 1 to fqcsr.fqen, poll fqcsr.fqon until it reads 1.
+    INFO("Configuring FQ");
+    fq_init();
+
+    //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
+    // Two for the source address from where the iDMA will read values,
+    uintptr_t read_paddr1 = phys_page_base(S1UR_S2R);
+    uintptr_t read_vaddr1 = virt_page_base(S1UR_S2R);
+    uintptr_t read_paddr2 = phys_page_base(S1URWX_S2R);
+    uintptr_t read_vaddr2 = virt_page_base(S1URWX_S2R);
+    // and others for the destination address where the iDMA will write the read values
+    uintptr_t write_paddr1 = phys_page_base(S1URWX_S2URWX);
+    uintptr_t write_vaddr1 = virt_page_base(S1URWX_S2URWX);
+    uintptr_t write_paddr2 = phys_page_base(S1URWX_S2URW);
+    uintptr_t write_vaddr2 = virt_page_base(S1URWX_S2URW);
+
+    //# Write known values to memory
+    // Write some values to memory using physical addresses (Core MMU in bare mode).
+    // The iDMA will read these values using the corresponding virtual addresses.
+    INFO("Writing known values to memory through physical addresses");
+    write64(read_paddr1, 0x11);
+    write64(read_paddr2, 0x22);
+    INFO("Clearing destination address where iDMA will write");
+    write64(write_paddr1, 0x00);
+    write64(write_paddr2, 0x00);
+
+    //# Configure Page Tables for both translation stages in memory
+    // Allocate various buffers to work as multi-level page tables.
+    // Fill these buffers with leaf and non-leaf entries (pages and superpages)
+
+    /**
+     * Setup hyp page_tables.
+     */
+    INFO("Configuring second-stage page tables");
+    // goto_priv(PRIV_HS);  // go to HS-mode
+    s2pt_init();         // setup hgatp and second-stage PTEs
+
+    /**
+     * Setup guest page tables.
+     */
+    INFO("Configuring first-stage page tables");
+    // goto_priv(PRIV_VS); // go to VS-mode
+    s1pt_init();        // setup satp and first-stage PTEs
+
+    //# Configure a flat MSI Page Table in memory
+    // Assume an MSI address mask (52-bits) of 5 bits set.
+    // The index for the MSI PT is extracted using this mask and the GPPN associated with the transaction.
+    // Using a mask of 5 bits set results in an MSI PT of 2⁵ = 32 entries.
+    // Allocate a page of memory for the MSI PT.
+    // In order to test the MSI translation mechanism, we must ensure that bits [abcde]
+    // are equal in both GPPN and MSI Pattern
+    // Example:     MSI Mask:       ... 0010 0110 1001
+    //              MSI Pattern:    ... 00Xa bXXc XdeX
+    //              GPPN            ... 00Ya bYYc YdeY
+    INFO("Configuring MSI page tables");
+    msi_pt_init();
+
+    //# Program the DDT (ddtp)
+    // Assume device_id width same as AXI ID width. Assume DC extended format.
+    // Allocate a page of memory to use as the root table of the DDT (Aligned buffer).
+    // To do this, determine the number of entries of the root DDT, based on the size of each entry = 4-kiB / 64 bytes.
+    // Initialize all entries to zero.
+    // Assume support for 3-LVL DDTs.
+    // Program the ddtp register with the LVL as the spec specifies and the base address of the page.
+
+    //# Set the DDT with one DC
+    // We can use a table with a structure similar to that used for defining different configurations for PTEs.
+    // Since we are using a single DMA-capable device to issue reads and writes to memory, 
+    // we will only have one entry in the DDT indexed with the AXI ID of the device (device_id).
+    // Save the base address of the first-stage root table in DC.iosatp. Same for second-stage and DC.iohgatp.
+    // Define an MSI address mask of 5 bits set for the DC.
+    // Define an MSI address pattern for the DC, following the format defined in the mask.
+    INFO("Configuring DDT");
+    ddt_init();
+
+    //# Program the iDMA with Virtual Addresses
+    // Program the iDMA with the corresponding VAddresses to read the values that were written 
+    // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
+    uintptr_t idma_src    = IDMA_REG_ADDR(IDMA_SRC_ADDR);
+    uintptr_t idma_dest   = IDMA_REG_ADDR(IDMA_DEST_ADDR);
+    uintptr_t idma_nbytes = IDMA_REG_ADDR(IDMA_N_BYTES);
+    uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
+    uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
+    uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
+    uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
+
+    INFO("Configuring iDMA module for FIRST TRANSFER")
+    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes, 8);                    // N of bytes to be transferred
+    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    uint64_t trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("First Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("First transfer finished!");
+
+    //# Check first transfer
+    // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    bool check = (read64(write_paddr1) == 0x11);
+    TEST_ASSERT("Two-stage translation: First transfer matches", check);
+
+    /*------- SECOND TRANSFER -------*/
+
+    INFO("Configuring iDMA module for SECOND TRANSFER")
+    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
+    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("Second Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("Second transfer finished!");
+
+    //# Check second transfer
+    // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    check = (read64(write_paddr2) == 0x22);
+    TEST_ASSERT("Two-stage translation: Second transfer matches", check);
+
+    TEST_END();
+}
+
+bool fault_reporting(){
+
+    // Print the name of the test and create test_status variable
+    TEST_START();
+
+    // The IOMMU should be in bare mode (ddtp.iommu_mode = 0) by default, 
+    // so we should be able to read and write using physical addresses
+
+    //# Setup the Command Queue:
+    // Allocate a buffer of N (POT) entries (16-bytes each). 
+    // This buffer must be alligned to the greater of two values: 4-kiB or N x 16 bytes.
+    // Configure cqb with the queue size as log2(N) and the base address of the buffer.
+    // Set cqt to zero.
+    // Enable the CQ by writing 1 to cqcsr.cqen, poll cqcsr.cqon until it reads 1.
+    INFO("Configuring CQ");
+    cq_init();
+
+    //# Setup the Fault Queue:
+    // Allocate a buffer of N (POT) entries (32-bytes each).
+    // This buffer must be alligned to the greater of two values: 4-kiB or N x 32 bytes.
+    // Configure fqb with the queue size as log2(N) and the base address of the buffer.
+    // Set fqh to zero.
+    // Enable the FQ by writing 1 to fqcsr.fqen, poll fqcsr.fqon until it reads 1.
+    INFO("Configuring FQ");
+    fq_init();
+
+    //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
+    // Two for the source address from where the iDMA will read values,
+    uintptr_t read_paddr1 = phys_page_base(S1R_S2R);
+    uintptr_t read_vaddr1 = virt_page_base(S1R_S2R);
+    // and others for the destination address where the iDMA will write the read values
+    uintptr_t write_paddr1 = phys_page_base(S1RW_S2URW);
+    uintptr_t write_vaddr1 = virt_page_base(S1RW_S2URW);
+
+    //# Write known values to memory
+    // Write some values to memory using physical addresses (Core MMU in bare mode).
+    // The iDMA will read these values using the corresponding virtual addresses.
+    INFO("Writing known values to memory through physical addresses");
+    write64(read_paddr1, 0x11);
+    INFO("Clearing destination address where iDMA will write");
+    write64(write_paddr1, 0x00);
+
+    //# Configure Page Tables for both translation stages in memory
+    // Allocate various buffers to work as multi-level page tables.
+    // Fill these buffers with leaf and non-leaf entries (pages and superpages)
+
+    /**
+     * Setup hyp page_tables.
+     */
+    INFO("Configuring second-stage page tables");
+    // goto_priv(PRIV_HS);  // go to HS-mode
+    s2pt_init();         // setup hgatp and second-stage PTEs
+
+    /**
+     * Setup guest page tables.
+     */
+    INFO("Configuring first-stage page tables");
+    // goto_priv(PRIV_VS); // go to VS-mode
+    s1pt_init();        // setup satp and first-stage PTEs
+
+    //# Configure a flat MSI Page Table in memory
+    // Assume an MSI address mask (52-bits) of 5 bits set.
+    // The index for the MSI PT is extracted using this mask and the GPPN associated with the transaction.
+    // Using a mask of 5 bits set results in an MSI PT of 2⁵ = 32 entries.
+    // Allocate a page of memory for the MSI PT.
+    // In order to test the MSI translation mechanism, we must ensure that bits [abcde]
+    // are equal in both GPPN and MSI Pattern
+    // Example:     MSI Mask:       ... 0010 0110 1001
+    //              MSI Pattern:    ... 00Xa bXXc XdeX
+    //              GPPN            ... 00Ya bYYc YdeY
+    INFO("Configuring MSI page tables");
+    msi_pt_init();
+
+    //# Program the DDT (ddtp)
+    // Assume device_id width same as AXI ID width. Assume DC extended format.
+    // Allocate a page of memory to use as the root table of the DDT (Aligned buffer).
+    // To do this, determine the number of entries of the root DDT, based on the size of each entry = 4-kiB / 64 bytes.
+    // Initialize all entries to zero.
+    // Assume support for 3-LVL DDTs.
+    // Program the ddtp register with the LVL as the spec specifies and the base address of the page.
+
+    //# Set the DDT with one DC
+    // We can use a table with a structure similar to that used for defining different configurations for PTEs.
+    // Since we are using a single DMA-capable device to issue reads and writes to memory, 
+    // we will only have one entry in the DDT indexed with the AXI ID of the device (device_id).
+    // Save the base address of the first-stage root table in DC.iosatp. Same for second-stage and DC.iohgatp.
+    // Define an MSI address mask of 5 bits set for the DC.
+    // Define an MSI address pattern for the DC, following the format defined in the mask.
+    INFO("Configuring DDT");
+    ddt_init();
+
+    //# Program the iDMA with Virtual Addresses
+    // Program the iDMA with the corresponding VAddresses to read the values that were written 
+    // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
+    uintptr_t idma_src    = IDMA_REG_ADDR(IDMA_SRC_ADDR);
+    uintptr_t idma_dest   = IDMA_REG_ADDR(IDMA_DEST_ADDR);
+    uintptr_t idma_nbytes = IDMA_REG_ADDR(IDMA_N_BYTES);
+    uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
+    uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
+    uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
+    uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
+
+    INFO("Configuring iDMA module for FIRST TRANSFER")
+    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes, 8);                    // N of bytes to be transferred
+    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+
+    // while (read64(idma_status) & 0x1ULL == 1)
+    //     ;
+
+    // Check if iDMA was set up properly and init transfer
+    uint64_t trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+    printf("First Transfer ID: %d\n", trans_id);
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+    INFO("First transfer finished!");
+
+    //# Check fault record written in memory
+    // Check CAUSE, TTYP, iotval and iotval2 according to the fault.
+    // In normal operation we should increment fqh
+
+    // Read fqh
+    uintptr_t fqh_addr = IOMMU_REG_ADDR(IOMMU_FQH_OFFSET);
+    uint64_t fqh = read32(fqh_addr);
+
+    // Get address of the next entry in the FQ
+    uintptr_t fqb_addr = IOMMU_REG_ADDR(IOMMU_FQB_OFFSET);
+    uint64_t fqb = read64(fqb_addr);
+    uintptr_t fq_entry_base = ((fqb & FQB_PPN_MASK) << 2) | (fqh << 5);
+
+    // Read FQ record by DWs
+    uint64_t fq_entry[4];
+    fq_entry[0] = read64(fq_entry_base + 0 );
+    fq_entry[1] = read64(fq_entry_base + 8 );
+    fq_entry[2] = read64(fq_entry_base + 16);
+    fq_entry[3] = read64(fq_entry_base + 24);
+
+    bool check_cause = ((fq_entry[0] & CAUSE_MASK) == EXPECTED_CAUSE_R);
+    bool check_iova  = (fq_entry[2] == read_vaddr1);
+
+    TEST_ASSERT("Read: Cause code matches with induced fault code", check_cause);
+    TEST_ASSERT("Read: Recorded IOVA matches with input IOVA", check_iova);
+
+    // Second entry
+    fqh++;
+    write32(fqh_addr, (uint32_t)fqh);
+    fq_entry_base = ((fqb & FQB_PPN_MASK) << 2) | (fqh << 5);
+
+    fq_entry[0] = read64(fq_entry_base + 0 );
+    fq_entry[1] = read64(fq_entry_base + 8 );
+    fq_entry[2] = read64(fq_entry_base + 16);
+    fq_entry[3] = read64(fq_entry_base + 24);
+
+    check_cause = ((fq_entry[0] & CAUSE_MASK) == EXPECTED_CAUSE_W);
+    check_iova  = (fq_entry[2] == write_vaddr1);
+
+    fqh++;
+    write32(fqh_addr, (uint32_t)fqh);
+
+    TEST_ASSERT("Write: Cause code matches with induced fault code", check_cause);
+    TEST_ASSERT("Write: Recorded IOVA matches with input IOVA", check_iova);
+
+
+    /*------- SECOND TRANSFER -------*/
+
+    // INFO("Configuring iDMA module for SECOND TRANSFER")
+    // write64(idma_src, (uint64_t)read_vaddr2);   // Source address
+    // write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+
+    // // while (read64(idma_status) & 0x1ULL == 1)
+    // //     ;
+
+    // // Check if iDMA was set up properly and init transfer
+    // trans_id = read64(idma_nextid);
+    // if (!trans_id)
+    //     {ERROR("iDMA misconfigured")}
+    // printf("Second Transfer ID: %d\n", trans_id);
+
+    // // Poll transfer status
+    // while (read64(idma_done) != trans_id)
+    //     ;
+    // INFO("Second transfer finished!");
+
+    // //# Check second transfer
+    // // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
+    // check = (read64(write_paddr2) == 0x22);
+    // TEST_ASSERT("Two-stage translation: Second transfer matches", check);
 
     TEST_END();
 }

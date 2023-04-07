@@ -14,7 +14,7 @@
 
 // IOMMU Mode
 #define IOMMU_OFF           (0)   // Turn off IOMMU
-#define IOMMU_BARE          (1)   // Set IOMMU to bare (bypass transactions)
+#define IOMMU_BARE          (0)   // Set IOMMU to bare (bypass transactions)
 
 // device_id width assumed to be AXI ID width
 // Can not be wider than 24-bits
@@ -28,7 +28,7 @@
 // Set second-stage translation to Bare mode
 #define IOHGATP_BARE        (0)
 // Set MSI translation off
-#define MSIPTP_OFF          (0)
+#define MSIPTP_OFF          (1)
 
 #define PAGE_SIZE           0x1000ULL     // 4kiB
 
