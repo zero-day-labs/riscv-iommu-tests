@@ -57,9 +57,6 @@
 #define MSI_ST_ACCESS_FAULT                 (273)
 #define PT_DATA_CORRUPTION                  (274)
 
-#define EXPECTED_CAUSE_R                    (LOAD_GUEST_PAGE_FAULT)
-#define EXPECTED_CAUSE_W                    (STORE_GUEST_PAGE_FAULT)
-
 void fq_init(void);
 
-#endif  /* FAULT_QUEUE_H*/
+#endif  /* FAULT_QUEUE_H */

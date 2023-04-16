@@ -25,7 +25,7 @@ void fq_init()
 
     // Write 1 to fqcsr.fqen to enable the FQ
     // INFO: Interrupts disabled
-    write32(fqcsr_addr, FQCSR_FQEN);
+    write32(fqcsr_addr, FQCSR_FQEN | FQCSR_FIE);
 
     // Poll fqcsr.fqon until it reads 1
     while (!(read32(fqcsr_addr) & FQCSR_FQON));

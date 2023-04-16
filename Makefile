@@ -32,7 +32,7 @@ endif
 
 TARGET := $(build_dir)/rvh_test
 c_srcs := main.c iommu_pts.c rvh_test.c command_queue.c\
-	iommu_translation_tests.c test_register.c device_contexts.c\
+	iommu_tests.c test_register.c device_contexts.c\
 	fault_queue.c msi_pts.c\
 	$(addprefix $(plat_dir)/, $(notdir $(wildcard $(plat_dir)/*.c)))
 asm_srcs := boot.S handlers.S  $(wildcard $(plat_dir)/*.S)

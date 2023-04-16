@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <rvh_test.h>
+#include <iommu_tests.h>
 
 /**
  *   Check bit 7 of misa CSR
@@ -42,17 +43,14 @@ void main(){
 
     INFO("RISC-V Input/Output Memory Management Unit Tests");
 
-    // Check for bit 7 of misa CSR
-    if(check_misa_h()){
+    // Reset CPU
+    reset_state();
+    init_iommu();
 
-        // Reset CPU
-        reset_state();
-
-        // Test functions are manually assigned to the .test_table 
-        // section in the test_register.c file using the TEST_REGISTER macro
-        for(int i = 0; i < test_table_size; i++)
-            test_table[i]();
-    }
+    // Test functions are manually assigned to the .test_table 
+    // section in the test_register.c file using the TEST_REGISTER macro
+    for(int i = 0; i < test_table_size; i++)
+        test_table[i]();
 
     INFO("end");
     exit(0);

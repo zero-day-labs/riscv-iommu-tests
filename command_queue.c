@@ -24,8 +24,7 @@ void cq_init()
     write32(cqt_addr, 0);
 
     // Write 1 to cqcsr.cqen to enable the CQ
-    // INFO: Interrupts disabled
-    write32(cqcsr_addr, CQCSR_CQEN);
+    write32(cqcsr_addr, CQCSR_CQEN | CQCSR_CIE);
 
     // Poll cqcsr.cqon until it reads 1
     while (!(read32(cqcsr_addr) & CQCSR_CQON));

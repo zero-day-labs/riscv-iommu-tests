@@ -9,63 +9,29 @@
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
 
-// Sv39 encoding to configure DC.fsc (iosatp)
+// iosatp encoding to configure DC.fsc
+#define IOSATP_MODE_BARE    (0x0ULL << 60)
 #define IOSATP_MODE_SV39    (0x8ULL << 60)
-// Sv39x4 encoding to configure DC.iohgatp
+// iohgatp encoding to configure DC.iohgatp
+#define IOHGATP_MODE_BARE   (0x0ULL << 60)
 #define IOHGATP_MODE_SV39X4 (0x8ULL << 60)
-// Definitive mode
-#if (IOSATP_BARE == 1)
-#   define IOSATP_MODE          (0x0ULL)
-#else
-#   define IOSATP_MODE          (IOSATP_MODE_SV39)
-#endif
-
-#if (IOHGATP_BARE == 1)
-#   define IOHGATP_MODE         (0x0ULL)
-#else
-#   define IOHGATP_MODE         (IOHGATP_MODE_SV39X4)
-#endif
 
 // MSI translation mode encoding to configure DC.msiptp
+#define MSIPTP_MODE_OFF     (0x0ULL << 60)
 #define MSIPTP_MODE_FLAT    (0x1ULL << 60)
 
-#if (MSIPTP_OFF == 1)
-#   define MSIPTP_MODE         (0x0ULL)
-#else
-#   define MSIPTP_MODE         (MSIPTP_MODE_FLAT)
-#endif
-
 // MSI address mask and pattern
-#define MSI_ADDR_MASK       (0x296ULL)   // ...0010_1001_0110
-#define MSI_ADDR_PATTERN    (0x385ULL)   // ...0011_1000_0101
-//  MSI GPA                  0x103ULL       ...0001_0000_0011
+#define MSI_ADDR_MASK       (0x100286ULL)   // 0001_0000_0000_0010_1000_0110
+#define MSI_ADDR_PATTERN    (0x000385ULL)   // 0000_0000_0000_0011_1000_0101
+// MSI GPA                  0x100103ULL        0001_0000_0000_0001_0000_0011 (IFN 10001)
+// MSI GPA                  0x100183ULL        0001_0000_0000_0001_1000_0011 (IFN 10101)
 
 // Define DDT mode
-#if (IOMMU_BARE == 1)
-#   define DDT_MODE                 (~(0ULL-IOMMU_OFF) & 1ULL)
-#else
-#   if (DC_EXT_FORMAT == 1)
-#      if (DEVICE_ID_WIDTH <= 6)
-#         define DDT_MODE           (~(0ULL-IOMMU_OFF) & 2ULL)
-#      else
-#         if (DEVICE_ID_WIDTH <= 15)
-#             define DDT_MODE       (~(0ULL-IOMMU_OFF) & 3ULL)
-#         else
-#             define DDT_MODE       (~(0ULL-IOMMU_OFF) & 4ULL)
-#         endif
-#      endif
-#   else
-#      if (DEVICE_ID_WIDTH <= 7)
-#         define DDT_MODE           (~(0ULL-IOMMU_OFF) & 2ULL)
-#      else
-#         if (DEVICE_ID_WIDTH <= 16)
-#             define DDT_MODE       (~(0ULL-IOMMU_OFF) & 3ULL)
-#         else
-#             define DDT_MODE       (~(0ULL-IOMMU_OFF) & 4ULL)
-#         endif
-#      endif
-#   endif
-#endif
+#define DDTP_MODE_OFF   (0ULL)
+#define DDTP_MODE_BARE  (1ULL)
+#define DDTP_MODE_1LVL  (2ULL)
+#define DDTP_MODE_2LVL  (3ULL)
+#define DDTP_MODE_3LVL  (4ULL)
 
 // DC.tc flags
 #define DC_TC_VALID     (1ULL << 0 )    // Valid
@@ -81,6 +47,9 @@
 #define DC_TC_SBE       (1ULL << 10)    // Endianness for implicit accesses to PDT and first-stage PTEs
 #define DC_TC_SXL       (1ULL << 11)    // To define first-stage translation scheme
 #define DC_TC_RSV       (1ULL << 12)    // To raise fault for setting rsvd fields
+
+#define GSCID_OFF       (44)
+#define PSCID_OFF       (12)
 
 // Device Context Indexes
 enum test_dc {
@@ -98,5 +67,13 @@ enum test_dc {
 };
 
 void ddt_init(void);
+void set_iommu_off(void);
+void set_iommu_bare(void);
+void set_iommu_1lvl(void);
+void set_iosatp_sv39(void);
+void set_iohgatp_sv39x4(void);
+void set_iosatp_bare(void);
+void set_iohgatp_bare(void);
+void set_msi_flat(void);
 
 #endif  /* DEVICE_CONTEXTS_H */

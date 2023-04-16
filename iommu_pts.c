@@ -19,118 +19,32 @@ struct {
     uint64_t stage2;
 } test_page_perm_table[TEST_PAGE_MAX] = {
     // Index            // S1                        // S2
-    [S1RWX_S2RWX]       =   {PTE_V | PTE_RWX,           PTE_V | PTE_RWX},     
-    [S1RWX_S2RW]        =   {PTE_V | PTE_RWX,           PTE_V | PTE_RW},     
-    [S1RWX_S2RX]        =   {PTE_V | PTE_RWX,           PTE_V | PTE_RX},     
-    [S1RWX_S2R]         =   {PTE_V | PTE_RWX,           PTE_V | PTE_R},
-    [S1RWX_S2X]         =   {PTE_V | PTE_RWX,           PTE_V | PTE_X},     
-    [S1RW_S2RWX]        =   {PTE_V | PTE_RW,            PTE_V | PTE_RWX},     
-    [S1RW_S2RW]         =   {PTE_V | PTE_RW,            PTE_V | PTE_RW},      
-    [S1RW_S2RX]         =   {PTE_V | PTE_RW,            PTE_V | PTE_RX},  
-    [S1RW_S2R]          =   {PTE_V | PTE_RW,            PTE_V | PTE_R},    
-    [S1RW_S2X]          =   {PTE_V | PTE_RW,            PTE_V | PTE_X},       
-    [S1RX_S2RWX]        =   {PTE_V | PTE_RX,            PTE_V | PTE_RWX},    
-    [S1RX_S2RW]         =   {PTE_V | PTE_RX,            PTE_V | PTE_RW},     
-    [S1RX_S2RX]         =   {PTE_V | PTE_RX,            PTE_V | PTE_RX},
-    [S1RX_S2R]          =   {PTE_V | PTE_RX,            PTE_V | PTE_R},    
-    [S1RX_S2X]          =   {PTE_V | PTE_RX,            PTE_V | PTE_X}, 
-    [S1R_S2RWX]         =   {PTE_V | PTE_R,             PTE_V | PTE_RWX},   
-    [S1R_S2RW]          =   {PTE_V | PTE_R,             PTE_V | PTE_RW},    
-    [S1R_S2RX]          =   {PTE_V | PTE_R,             PTE_V | PTE_RX},
-    [S1R_S2R]           =   {PTE_V | PTE_R,             PTE_V | PTE_R},    
-    [S1R_S2X]           =   {PTE_V | PTE_R,             PTE_V | PTE_X},      
-    [S1X_S2RWX]         =   {PTE_V | PTE_X,             PTE_V | PTE_RWX},   
-    [S1X_S2RW]          =   {PTE_V | PTE_X,             PTE_V | PTE_RW},    
-    [S1X_S2RX]          =   {PTE_V | PTE_X,             PTE_V | PTE_RX}, 
-    [S1X_S2R]           =   {PTE_V | PTE_X,             PTE_V | PTE_R},   
-    [S1X_S2X]           =   {PTE_V | PTE_X,             PTE_V | PTE_X},  
-    [S1RWX_S2URWX]      =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},            
-    [S1RWX_S2URW]       =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RW},             
-    [S1RWX_S2URX]       =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RX}, 
-    [S1RWX_S2UR]        =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_R},            
-    [S1RWX_S2UX]        =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_X},          
-    [S1RW_S2URWX]       =   {PTE_V | PTE_RW,            PTE_V | PTE_U | PTE_RWX},            
-    [S1RW_S2URW]        =   {PTE_V | PTE_RW,            PTE_V | PTE_U | PTE_RW},         
-    [S1RW_S2URX]        =   {PTE_V | PTE_RW,            PTE_V | PTE_U | PTE_RX},
-    [S1RW_S2UR]         =   {PTE_V | PTE_RW,            PTE_V | PTE_U | PTE_R},         
-    [S1RW_S2UX]         =   {PTE_V | PTE_RW,            PTE_V | PTE_U | PTE_X},          
-    [S1RX_S2URWX]       =   {PTE_V | PTE_RX,            PTE_V | PTE_U | PTE_RWX},            
-    [S1RX_S2URW]        =   {PTE_V | PTE_RX,            PTE_V | PTE_U | PTE_RW},         
-    [S1RX_S2URX]        =   {PTE_V | PTE_RX,            PTE_V | PTE_U | PTE_RX}, 
-    [S1RX_S2UR]         =   {PTE_V | PTE_RX,            PTE_V | PTE_U | PTE_R},        
-    [S1RX_S2UX]         =   {PTE_V | PTE_RX,            PTE_V | PTE_U | PTE_X},    
-    [S1R_S2URWX]        =   {PTE_V | PTE_R,             PTE_V | PTE_U | PTE_RWX},        
-    [S1R_S2URW]         =   {PTE_V | PTE_R,             PTE_V | PTE_U | PTE_RW},         
-    [S1R_S2URX]         =   {PTE_V | PTE_R,             PTE_V | PTE_U | PTE_RX},
-    [S1R_S2UR]          =   {PTE_V | PTE_R,             PTE_V | PTE_U | PTE_R},         
-    [S1R_S2UX]          =   {PTE_V | PTE_R,             PTE_V | PTE_U | PTE_X},      
-    [S1X_S2URWX]        =   {PTE_V | PTE_X,             PTE_V | PTE_U | PTE_RWX},        
-    [S1X_S2URW]         =   {PTE_V | PTE_X,             PTE_V | PTE_U | PTE_RW},         
-    [S1X_S2URX]         =   {PTE_V | PTE_X,             PTE_V | PTE_U | PTE_RX},   
-    [S1X_S2UR]          =   {PTE_V | PTE_X,             PTE_V | PTE_U | PTE_R},      
-    [S1X_S2UX]          =   {PTE_V | PTE_X,             PTE_V | PTE_U | PTE_X},          
-    [S1URWX_S2RWX]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_RWX},            
-    [S1URWX_S2RW]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_RW},         
-    [S1URWX_S2RX]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_RX},
-    [S1URWX_S2R]        =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_R},         
-    [S1URWX_S2X]        =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_X},          
-    [S1URW_S2RWX]       =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_RWX},        
-    [S1URW_S2RW]        =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_RW},         
-    [S1URW_S2RX]        =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_RX},
-    [S1URW_S2R]         =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_R},         
-    [S1URW_S2X]         =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_X},          
-    [S1URX_S2RWX]       =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_RWX},        
-    [S1URX_S2RW]        =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_RW},         
-    [S1URX_S2RX]        =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_RX},
-    [S1URX_S2R]         =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_R},         
-    [S1URX_S2X]         =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_X},    
-    [S1UR_S2RWX]        =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_RWX},        
-    [S1UR_S2RW]         =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_RW},         
-    [S1UR_S2RX]         =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_RX}, 
-    [S1UR_S2R]          =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_R},        
-    [S1UR_S2X]          =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_X},         
-    [S1UX_S2RWX]        =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_RWX},        
-    [S1UX_S2RW]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_RW},         
-    [S1UX_S2RX]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_RX}, 
-    [S1UX_S2R]          =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_R},        
-    [S1UX_S2X]          =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_X},          
-    [S1URWX_S2URWX]     =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},            
-    [S1URWX_S2URW]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RW},             
-    [S1URWX_S2URX]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RX},
-    [S1URWX_S2UR]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_R},              
-    [S1URWX_S2UX]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_X},          
-    [S1URW_S2URWX]      =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RWX},            
-    [S1URW_S2URW]       =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RW},         
-    [S1URW_S2URX]       =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX}, 
-    [S1URW_S2UR]        =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_R},        
-    [S1URW_S2UX]        =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_X},          
-    [S1URX_S2URWX]      =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_U | PTE_RWX},        
-    [S1URX_S2URW]       =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_U | PTE_RW},         
-    [S1URX_S2URX]       =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_U | PTE_RX},
-    [S1URX_S2UR]        =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_U | PTE_R},         
-    [S1URX_S2UX]        =   {PTE_V | PTE_U | PTE_RX,    PTE_V | PTE_U | PTE_X},   
-    [S1UR_S2URWX]       =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_RWX},
-    [S1UR_S2URW]        =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_RW},
-    [S1UR_S2URX]        =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_RX},
-    [S1UR_S2UR]         =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},
-    [S1UR_S2UX]         =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_X},       
-    [S1UX_S2URWX]       =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_RWX},        
-    [S1UX_S2URW]        =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_RW},         
-    [S1UX_S2URX]        =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_RX},
-    [S1UX_S2UR]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_R},         
-    [S1UX_S2UX]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_X},
-    [S1I_S2I]           =   {0,                         0}, 
-    [S1RWX_S2I]         =   {PTE_V | PTE_RWX,           0}, 
-    [S1RW_S2I]          =   {PTE_V | PTE_RW,            0}, 
-    [S1I_S2URWX]        =   {0,                         PTE_V | PTE_U | PTE_RWX},  
-    [S1I_S2UX]          =   {0,                         PTE_V | PTE_U | PTE_X},
-    [S1I_S2UR]          =   {0,                         PTE_V | PTE_U | PTE_R},
-    [S1I_S2URW]         =   {0,                         PTE_V | PTE_U | PTE_RW},
-    [SCRATCHPAD]        =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},           
-    [SWITCH1]           =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},      
-    [SWITCH2]           =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
-    [IDMA_WRDEST]       =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
-    [S1RWX_S2URWX_MSI]  =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
+    [IOMMU_OFF_R]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [IOMMU_OFF_W]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},   
+    [IOMMU_BARE_R]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [IOMMU_BARE_W]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [BARE_TRANS_R1]     =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [BARE_TRANS_R2]     =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [BARE_TRANS_W1]     =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [BARE_TRANS_W2]     =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
+    [S2_ONLY_R]         =   {0,                         PTE_V | PTE_U | PTE_R},      
+    [S2_ONLY_W]         =   {0,                         PTE_V | PTE_U | PTE_RW},  
+    [MSI_R1]            =   {0,                         PTE_V | PTE_U | PTE_R},    
+    [TWO_STAGE_R4K]     =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},       
+    [TWO_STAGE_R2M]     =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},    
+    [TWO_STAGE_R1G]     =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},     
+    [MSI_R2]            =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},
+    [TWO_STAGE_W4K]     =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RW},
+    [IOTINVAL_R1]       =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},
+    [IOTINVAL_R2]       =   {PTE_V | PTE_U | PTE_R,     PTE_V | PTE_U | PTE_R},
+    [WSI_R]             =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_R},
+    [WSI_W]             =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX},
+    [MSI_GEN_R]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_R},
+    [MSI_GEN_W]         =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX},       
+    [SWITCH1]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [SWITCH2]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [MSI_W1]            =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [MSI_W2]            =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [PT_TOP]            =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
 };      
 
@@ -151,15 +65,16 @@ void s1pt_init(){
     // RWX permissions, User bit, Valid flag and A/D bits set
     for(int i = 0; i < 4; i++){
         s1pt[0][i] = 
-            PTE_V | PTE_AD | PTE_RWX | (addr >> 2);  
+            STAGE1_PERM_1GIB | (addr >> 2);  
         addr +=  SUPERPAGE_SIZE(0);
     }
 
-    // Set non-leaf PTE (s1pt[0][1]) pointing to first-lvl PT (s1pt[1][0])
-    s1pt[0][MEM_BASE/SUPERPAGE_SIZE(0)] = 
+    // Set non-leaf PTE (s1pt[0][3]) pointing to first-lvl PT (s1pt[1][0])
+    s1pt[0][3] = 
         PTE_V | (((uintptr_t)&s1pt[1][0]) >> 2);
 
-    addr = MEM_BASE;
+    // addr = MEM_BASE;
+    addr = 0xC0000000ULL;
 
     // Clear first-level table entries
     for(int i = 0; i < 512; i++) s1pt[1][i] = 0;
@@ -168,16 +83,13 @@ void s1pt_init(){
     //  i = [0,63]
     for(int i = 0; i <  MEM_SIZE/SUPERPAGE_SIZE(1)/2; i++){
         s1pt[1][i] = 
-           PTE_V | PTE_AD | PTE_RWX | (addr >> 2);  
+           STAGE1_PERM_2MIB | (addr >> 2);
         addr +=  SUPERPAGE_SIZE(1);
     }
 
     // Setup non-leaf entry pointing to second-level PT (s1pt[2][0]) from root table
     s1pt[0][4] =
         PTE_V | (((uintptr_t)&s1pt[2][0]) >> 2);
-
-    // s1pt[0][5] =
-    //     PTE_V | PTE_U | PTE_AD | (((uintptr_t)&s1pt[2][0]) >> 2);
 
     // Setup non-leaf entry pointing to third-level PT (s1pt[3][0]) from second-lvl table
     s1pt[2][0] = 
@@ -257,17 +169,15 @@ void s2pt_init(){
     uintptr_t addr = 0x0;
     
     //# Set 4 leaf 1GiB PTEs.
-    // RWX permissions, User bit, Valid flag and A/D bits set
-    // REMARK: For second-stage address translation, all memory accesses are considered to be U-lvl accesses
     for(int i = 0; i < 4; i++){
         s2pt_root[i] = 
-            PTE_V | PTE_U | PTE_AD | PTE_RWX | (addr >> 2);  
+            STAGE2_PERM_1GIB | (addr >> 2);  
         addr +=  SUPERPAGE_SIZE(0);
     }
 
     //# Set non-leaf entry pointing to the base address of s2pt
-    s2pt_root[MEM_BASE/SUPERPAGE_SIZE(0)] =
-        PTE_V | (((uintptr_t)&s2pt[0][0]) >> 2);     // s2pt_root[2]
+    s2pt_root[3] =
+        PTE_V | (((uintptr_t)&s2pt[0][0]) >> 2);     // s2pt_root[3]
 
     addr = MEM_BASE;
 
@@ -278,7 +188,7 @@ void s2pt_init(){
     // i = [0,63]
     for(int i = 0; i < MEM_SIZE/SUPERPAGE_SIZE(1)/2; i++){
         s2pt[0][i] = 
-            PTE_V | PTE_U | PTE_AD | PTE_RWX | (addr >> 2);
+            STAGE2_PERM_2MIB | (addr >> 2);
         addr +=  SUPERPAGE_SIZE(1);
     }    
 

@@ -17,18 +17,17 @@
 #define IOMMU_BARE          (0)   // Set IOMMU to bare (bypass transactions)
 
 // device_id width assumed to be AXI ID width
-// Can not be wider than 24-bits
+// 6, 15, 24
 #define DEVICE_ID_WIDTH     (6)
 
 // Device Context Format (1 for extended format, 0 for base format)
 #define DC_EXT_FORMAT       (1)
 
-// Set first-stage translation to Bare mode
-#define IOSATP_BARE         (0)
-// Set second-stage translation to Bare mode
-#define IOHGATP_BARE        (0)
-// Set MSI translation off
-#define MSIPTP_OFF          (1)
+#define CQ_INT_VECTOR       (0x03ULL)
+#define FQ_INT_VECTOR       (0x0AULL)
+
+#define CIP_MASK            (1UL << 0)
+#define FIP_MASK            (1UL << 1)
 
 #define PAGE_SIZE           0x1000ULL     // 4kiB
 
@@ -121,6 +120,8 @@
 #define IDMA_REG_ADDR(OFF)      (IDMA_BASE_ADDR + OFF)
 
 typedef uint64_t pte_t;
+
+void init_iommu(void);
 
 
 #endif /* IOMMU_TESTS_H */

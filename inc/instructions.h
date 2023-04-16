@@ -65,6 +65,10 @@ static inline void hfence() {
     hfence_gvma();
 }
 
+static inline void fence_i() {
+    asm volatile("fence.i" ::: "memory");
+}
+
 static inline uint64_t hlvb(uintptr_t addr){
     uint64_t value;
     asm volatile(
