@@ -30,7 +30,7 @@ ifneq ($(PREV_LOG_LEVEL), $(LOG_LEVEL))
 pre_targets += clean_objs
 endif
 
-TARGET := $(build_dir)/rvh_test
+TARGET := $(build_dir)/rv_iommu_test
 c_srcs := main.c iommu_pts.c rvh_test.c command_queue.c\
 	iommu_tests.c test_register.c device_contexts.c\
 	fault_queue.c msi_pts.c\

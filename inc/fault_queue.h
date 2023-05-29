@@ -4,9 +4,9 @@
 #include <iommu_tests.h>
 
 // Number of entries in the FQ. Must be POT
-#define FQ_N_ENTRIES    (64 )
+#define FQ_N_ENTRIES    (64)
 // Size of the queue represented as Log2(64)-1 = 5
-#define FQ_LOG2SZ_1     (5  )
+#define FQ_LOG2SZ_1     (5 )
 
 // Mask for cqb.PPN (fqb[53:10])
 #define FQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)

@@ -24,7 +24,7 @@
 #define DC_EXT_FORMAT       (1)
 
 #define CQ_INT_VECTOR       (0x03ULL)
-#define FQ_INT_VECTOR       (0x0AULL)
+#define FQ_INT_VECTOR       (0x02ULL)
 
 #define CIP_MASK            (1UL << 0)
 #define FIP_MASK            (1UL << 1)

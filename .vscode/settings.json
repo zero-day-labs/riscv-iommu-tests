@@ -5,6 +5,9 @@
         "stdint.h": "c",
         "command_queue.h": "c",
         "stdlib.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "rvh_test.h": "c",
+        "csrs.h": "c",
+        "instructions.h": "c"
     }
 }

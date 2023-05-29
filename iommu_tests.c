@@ -65,14 +65,9 @@ bool idma_only(){
     //# Write known values to memory
     // Write some values to memory using physical addresses (Core MMU in bare mode).
     // The iDMA will read these values using the corresponding physical addresses.
-    INFO("Writing known values to memory through physical addresses");
-    printf("[%X] = 0x11\n", read_paddr1);
-    printf("[%X] = 0x22\n", read_paddr2);
     write64(read_paddr1, 0x11);   // 0x..._0001_0001
     write64(read_paddr2, 0x22);   // 0x..._0010_0010
-    INFO("Clearing destination address where iDMA will write");
-    printf("[%X] = 0x00\n", write_paddr1);
-    printf("[%X] = 0x00\n", write_paddr2);
+
     write64(write_paddr1, 0x00);   // Clear
     write64(write_paddr2, 0x00);   // Clear
 
@@ -87,7 +82,6 @@ bool idma_only(){
     uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
     uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
 
-    INFO("Configuring iDMA module for FIRST TRANSFER")
     write64(idma_src, (uint64_t)read_paddr1); // Source address
     write64(idma_dest, (uint64_t)write_paddr1);  // Destination address
     write64(idma_nbytes, 8);                     // N of bytes to be transferred
@@ -100,21 +94,17 @@ bool idma_only(){
     uint64_t trans_id = read64(idma_nextid);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
-    printf("First Transfer ID: %d\n", trans_id);
 
     // Poll transfer status
     while (read64(idma_done) != trans_id)
         ;
-    INFO("First transfer finished!");
 
     //# Check first transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    bool check = (read64(write_paddr1) == 0x11);
-    TEST_ASSERT("iDMA single-beat: First Transfer", check);
+    bool check1, check2 = (read64(write_paddr1) == 0x11);
 
     /*------------- SECOND TRANSFER --------------*/
 
-    INFO("Configuring iDMA module for SECOND TRANSFER")
     write64(idma_src, (uint64_t)read_paddr2); // Source address
     write64(idma_dest, (uint64_t)write_paddr2);  // Destination address
 
@@ -125,17 +115,15 @@ bool idma_only(){
     trans_id = read64(idma_nextid);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
-    printf("Second Transfer ID: %d\n", trans_id);
 
     // Poll transfer status
     while (read64(idma_done) != trans_id)
         ;
-    INFO("Second transfer finished!")
 
     //# Check second transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    check = (read64(write_paddr2) == 0x22);
-    TEST_ASSERT("iDMA single-beat: Second Transfer", check);
+    check2 = (read64(write_paddr2) == 0x22);
+    TEST_ASSERT("iDMA directly connected to system bus", (check1 && check2));
 
     TEST_END();
 }
@@ -163,61 +151,21 @@ bool idma_only_multiple_beats(){
     //# Write known values to memory
     // Write some values to memory using physical addresses (Core MMU in bare mode).
     // The iDMA will read these values using the corresponding physical addresses.
-    INFO("Writing known values to memory through physical addresses");
-    printf("[%X] = 0x00\n", start_raddr1        );
-    printf("[%X] = 0x10\n", start_raddr1 + 8    );
-    printf("[%X] = 0x20\n", start_raddr1 + 16   );
-    // printf("[%X] = 0x30\n", start_raddr1 + 24   );
-    // printf("[%X] = 0x40\n", start_raddr1 + 32   );
-    // printf("[%X] = 0x50\n", start_raddr1 + 40   );
-    // printf("[%X] = 0x60\n", start_raddr1 + 48   );
-    // printf("[%X] = 0x70\n", start_raddr1 + 56   );
-    printf("\n");
-    printf("[%X] = 0x80\n", start_raddr2        );
-    printf("[%X] = 0x90\n", start_raddr2 + 8    );
-    printf("[%X] = 0xA0\n", start_raddr2 + 16   );
-    // printf("[%X] = 0xB0\n", start_raddr2 + 24   );
-    // printf("[%X] = 0xC0\n", start_raddr2 + 32   );
-    // printf("[%X] = 0xD0\n", start_raddr2 + 40   );
-    // printf("[%X] = 0xE0\n", start_raddr2 + 48   );
-    // printf("[%X] = 0xF0\n", start_raddr2 + 56   );
-
     write64(start_raddr1     , 0x00);
     write64(start_raddr1 + 8 , 0x10);
     write64(start_raddr1 + 16, 0x20);
-    // write64(start_raddr1 + 24, 0x30);
-    // write64(start_raddr1 + 32, 0x40);
-    // write64(start_raddr1 + 40, 0x50);
-    // write64(start_raddr1 + 48, 0x60);
-    // write64(start_raddr1 + 56, 0x70);
 
     write64(start_raddr2     , 0x80);
     write64(start_raddr2 + 8 , 0x90);
     write64(start_raddr2 + 16, 0xA0);
-    // write64(start_raddr2 + 24, 0xB0);
-    // write64(start_raddr2 + 32, 0xC0);
-    // write64(start_raddr2 + 40, 0xD0);
-    // write64(start_raddr2 + 48, 0xE0);
-    // write64(start_raddr2 + 56, 0xF0);
 
-    INFO("Clearing destination address where iDMA will write");
     write64(start_waddr1     , 0x00);
     write64(start_waddr1 + 8 , 0x00);
     write64(start_waddr1 + 16, 0x00);
-    // write64(start_waddr1 + 24, 0x00);
-    // write64(start_waddr1 + 32, 0x00);
-    // write64(start_waddr1 + 40, 0x00);
-    // write64(start_waddr1 + 48, 0x00);
-    // write64(start_waddr1 + 56, 0x00);
 
     write64(start_waddr2     , 0x00);
     write64(start_waddr2 + 8 , 0x00);
     write64(start_waddr2 + 16, 0x00);
-    // write64(start_waddr2 + 24, 0x00);
-    // write64(start_waddr2 + 32, 0x00);
-    // write64(start_waddr2 + 40, 0x00);
-    // write64(start_waddr2 + 48, 0x00);
-    // write64(start_waddr2 + 56, 0x00);
 
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
@@ -230,42 +178,29 @@ bool idma_only_multiple_beats(){
     uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
     uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
 
-    INFO("Configuring iDMA module for FIRST TRANSFER")
     write64(idma_src, (uint64_t)start_raddr1);  // Source address
     write64(idma_dest, (uint64_t)start_waddr1); // Destination address
     write64(idma_nbytes, 24);                   // N of bytes to be transferred
     write64(idma_config, 0 );       // iDMA config
 
-    // while (read64(idma_status) & 0x1ULL == 1)
-    //     ;
-
     // Check if iDMA was set up properly and init transfer
     uint64_t trans_id = read64(idma_nextid);
-    printf("First Transfer ID: %d\n", trans_id);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
     while (read64(idma_done) != trans_id)
         ;
-    INFO("First transfer finished!");
 
     //# Check first transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    bool check;
-    check =    ((read64(start_waddr1     ) == 0x00) &&
+    bool check1, check2;
+    check1 =    ((read64(start_waddr1     ) == 0x00) &&
                 (read64(start_waddr1 + 8 ) == 0x10) &&
                 (read64(start_waddr1 + 16) == 0x20));
-                // (read64(start_waddr1 + 24) == 0x30) &&
-                // (read64(start_waddr1 + 32) == 0x40) &&
-                // (read64(start_waddr1 + 40) == 0x50) &&
-                // (read64(start_waddr1 + 48) == 0x60) &&
-                // (read64(start_waddr1 + 56) == 0x70));
-    TEST_ASSERT("iDMA succesfully copied the first values to the desired positions in memory", check);
 
     /*------------- SECOND TRANSFER --------------*/
 
-    INFO("Configuring iDMA module for SECOND TRANSFER")
     write64(idma_src, (uint64_t)start_raddr2); // Source address
     write64(idma_dest, (uint64_t)start_waddr2);  // Destination address
 
@@ -276,24 +211,18 @@ bool idma_only_multiple_beats(){
     trans_id = read64(idma_nextid);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
-    printf("Second Transfer ID: %d\n", trans_id);
 
     // Poll transfer status
     while (read64(idma_done) != trans_id)
         ;
-    INFO("Second transfer finished!")
 
     //# Check second transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    check =    ((read64(start_waddr2     ) == 0x80) &&
+    check2 =    ((read64(start_waddr2     ) == 0x80) &&
                 (read64(start_waddr2 + 8 ) == 0x90) &&
                 (read64(start_waddr2 + 16) == 0xA0));
-                // (read64(start_waddr2 + 24) == 0xB0) &&
-                // (read64(start_waddr2 + 32) == 0xC0) &&
-                // (read64(start_waddr2 + 40) == 0xD0) &&
-                // (read64(start_waddr2 + 48) == 0xE0) &&
-                // (read64(start_waddr2 + 56) == 0xF0));
-    TEST_ASSERT("iDMA succesfully copied the second value to the desired position in memory", check);
+
+    TEST_ASSERT("iDMA directly connected to system bus", (check1 && check2));
 
     TEST_END();
 }
@@ -455,6 +384,10 @@ bool iommu_off(){
     fqh++;
     write32(fqh_addr, (uint32_t)fqh);
 
+    // Clear ipsr.fip
+    uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
+    write32(ipsr_addr, 0x2UL);
+
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
 
@@ -586,7 +519,7 @@ bool second_stage_only(){
 
     //# DDTC Invalidation
     // device_id to be invalidated
-    uint64_t device_id = 0;
+    uint64_t device_id = DEVICE_ID;
     // Construct command
     uint64_t cmd_entry[2];
 
@@ -683,7 +616,7 @@ bool two_stage_translation(){
 
     //# DDTC Invalidation
     // device_id to be invalidated
-    uint64_t device_id = 0;
+    uint64_t device_id = DEVICE_ID;
     // Construct command
     uint64_t cmd_entry[2];
 
@@ -1137,7 +1070,6 @@ bool iofence(){
     TEST_START();
 
     set_iommu_1lvl();
-    VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Construct command
     uint64_t cmd_entry[2];
@@ -1169,9 +1101,15 @@ bool iofence(){
     uintptr_t cqh_addr = IOMMU_REG_ADDR(IOMMU_CQH_OFFSET);
     uint32_t cqh = read32(cqh_addr);
 
+    // Flush cache
+    fence_i();
+
     // Increment tail reg
     cqt++;
     write32(cqt_addr, cqt);
+
+    // Flush cache
+    fence_i();
 
     uint32_t cqh_inc = read32(cqh_addr);
     bool check = (cqh_inc == (cqh + 1));
@@ -1231,17 +1169,29 @@ bool msi_generation(){
     write32(msi_data_3_addr,    msi_data_3);
     write32(msi_vec_ctl_3_addr, msi_vec_ctl_3);
 
-    uintptr_t msi_addr_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_10_OFFSET);
-    uintptr_t msi_data_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_10_OFFSET);
-    uintptr_t msi_vec_ctl_10_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_10_OFFSET);
+    // uintptr_t msi_addr_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_10_OFFSET);
+    // uintptr_t msi_data_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_10_OFFSET);
+    // uintptr_t msi_vec_ctl_10_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_10_OFFSET);
 
-    uint64_t msi_addr_10     = 0x83001000ULL;
-    uint32_t msi_data_10     = 0xFEDCBA00UL;
-    uint32_t msi_vec_ctl_10  = 0x0UL;
+    uintptr_t msi_addr_2_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_2_OFFSET);
+    uintptr_t msi_data_2_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_2_OFFSET);
+    uintptr_t msi_vec_ctl_2_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_2_OFFSET);
 
-    write64(msi_addr_10_addr,    msi_addr_10);
-    write32(msi_data_10_addr,    msi_data_10);
-    write32(msi_vec_ctl_10_addr, msi_vec_ctl_10);
+    // uint64_t msi_addr_10     = 0x83001000ULL;
+    // uint32_t msi_data_10     = 0xFEDCBA00UL;
+    // uint32_t msi_vec_ctl_10  = 0x0UL;
+
+    uint64_t msi_addr_2     = 0x83001000ULL;
+    uint32_t msi_data_2     = 0xFEDCBA00UL;
+    uint32_t msi_vec_ctl_2  = 0x0UL;
+
+    // write64(msi_addr_10_addr,    msi_addr_10);
+    // write32(msi_data_10_addr,    msi_data_10);
+    // write32(msi_vec_ctl_10_addr, msi_vec_ctl_10);
+
+    write64(msi_addr_2_addr,    msi_addr_2);
+    write32(msi_data_2_addr,    msi_data_2);
+    write32(msi_vec_ctl_2_addr, msi_vec_ctl_2);
 
     //# Induce a fault in the FQ with a misconfigured translation
     uintptr_t read_paddr1 = phys_page_base(MSI_GEN_R);
@@ -1290,6 +1240,9 @@ bool msi_generation(){
     cqt++;
     write32(cqt_addr, cqt);
 
+    // Flush cache
+    fence_i();
+
     //# Checks
     // Check whether cqcsr.cmd_ill was set
     uintptr_t cqcsr_addr = IOMMU_REG_ADDR(IOMMU_CQCSR_OFFSET);
@@ -1303,8 +1256,8 @@ bool msi_generation(){
     TEST_ASSERT("ipsr.cip and ipsr.fip were set", check);
 
     // Check data for FQ vector
-    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_10);
-    check = (fq_msi_data == msi_data_10);
+    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_2);
+    check = (fq_msi_data == msi_data_2);
     TEST_ASSERT("MSI data corresponding to FQ interrupt vector matches", check);
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
