@@ -65,7 +65,7 @@ void ddt_init()
     // }
 
     // Configure 4 DCs in the root DDT (1LVL mode)
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+0] = test_dc_tc_table[BASIC];                                // DC.tc
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE); // DC.iohgatp
@@ -108,7 +108,7 @@ void set_iommu_1lvl()
 
 void set_iosatp_bare()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+2] = (0x0DEFULL << PSCID_OFF);                         // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);   // DC.fsc
@@ -117,7 +117,7 @@ void set_iosatp_bare()
 
 void set_iosatp_sv39()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+2] = (0x0DEFULL << PSCID_OFF);                         // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_SV39);   // DC.fsc
@@ -126,7 +126,7 @@ void set_iosatp_sv39()
 
 void set_iohgatp_bare()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);  // DC.iohgatp
         root_ddt[i+1] |= (0x0ABCULL << GSCID_OFF);
@@ -135,7 +135,7 @@ void set_iohgatp_bare()
 
 void set_iohgatp_sv39x4()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);  // DC.iohgatp
         root_ddt[i+1] |= (0x0ABCULL << GSCID_OFF);
@@ -144,7 +144,7 @@ void set_iohgatp_sv39x4()
 
 void set_msi_off()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);        // DC.msiptp
         root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
@@ -154,7 +154,7 @@ void set_msi_off()
 
 void set_msi_flat()
 {
-    for (int i = 0; i < 32; i=i+8)
+    for (int i = 72; i < 88; i=i+8)
     {
         root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);       // DC.msiptp
         root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask

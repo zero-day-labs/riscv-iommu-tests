@@ -18,7 +18,7 @@ struct {
     uint64_t stage1;
     uint64_t stage2;
 } test_page_perm_table[TEST_PAGE_MAX] = {
-    // Index            // S1                        // S2
+    // Index                // S1                       // S2
     [IOMMU_OFF_R]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
     [IOMMU_OFF_W]       =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},   
     [IOMMU_BARE_R]      =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},     
@@ -40,7 +40,9 @@ struct {
     [WSI_R]             =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_R},
     [WSI_W]             =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX},
     [MSI_GEN_R]         =   {PTE_V | PTE_U | PTE_X,     PTE_V | PTE_U | PTE_R},
-    [MSI_GEN_W]         =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX},       
+    [MSI_GEN_W]         =   {PTE_V | PTE_U | PTE_RW,    PTE_V | PTE_U | PTE_RX},
+    [HPM_R]             =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [HPM_W]             =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},    
     [SWITCH1]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [SWITCH2]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [MSI_W1]            =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},

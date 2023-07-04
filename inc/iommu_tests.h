@@ -25,6 +25,7 @@
 
 #define CQ_INT_VECTOR       (0x03ULL)
 #define FQ_INT_VECTOR       (0x02ULL)
+#define HPM_INT_VECTOR      (0x01ULL)
 
 #define CIP_MASK            (1UL << 0)
 #define FIP_MASK            (1UL << 1)
@@ -47,6 +48,11 @@
 #define IOMMU_CQCSR_OFFSET          0x48
 #define IOMMU_FQCSR_OFFSET          0x4c
 #define IOMMU_IPSR_OFFSET           0x54
+#define IOMMU_IOCOUNTOVF_OFFSET     0x58
+#define IOMMU_IOCOUNTINH_OFFSET     0x5c
+#define IOMMU_IOHPMCYCLES_OFFSET    0x60
+#define IOMMU_IOHPMCTR_OFFSET       0x68
+#define IOMMU_IOHPMEVT_OFFSET       0x160
 #define IOMMU_ICVEC_OFFSET          0x2f8
 #define IOMMU_MSI_ADDR_0_OFFSET     0x300
 #define IOMMU_MSI_DATA_0_OFFSET     0x308

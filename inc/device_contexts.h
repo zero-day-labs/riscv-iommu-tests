@@ -7,7 +7,7 @@
 #define DDT_N_ENTRIES       (0x1000 / 64)   // 64 entries
 
 // HW device_id of the DMA device. Defined for invalidation
-#define DEVICE_ID           (1ULL)
+#define DEVICE_ID           (0xAULL)
 
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)

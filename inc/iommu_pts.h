@@ -95,6 +95,8 @@ enum test_page {
     WSI_W,
     MSI_GEN_R,
     MSI_GEN_W,
+    HPM_R,
+    HPM_W,
     SWITCH1,
     SWITCH2,
     MSI_W1 = 259,

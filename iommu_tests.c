@@ -4,6 +4,7 @@
 #include <device_contexts.h>
 #include <msi_pts.h>
 #include <iommu_pts.h>
+#include <hpm.h>
 
 /**
  * !NOTES:
@@ -29,6 +30,77 @@ uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
 uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
 uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
 uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
+
+// fctl
+uintptr_t fctl_addr = IOMMU_REG_ADDR(IOMMU_FCTL_OFFSET);
+
+// CQ
+uintptr_t cqcsr_addr = IOMMU_REG_ADDR(IOMMU_CQCSR_OFFSET);
+uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
+uintptr_t cqh_addr = IOMMU_REG_ADDR(IOMMU_CQH_OFFSET);
+uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
+
+// FQ
+uintptr_t fqb_addr = IOMMU_REG_ADDR(IOMMU_FQB_OFFSET);
+uintptr_t fqh_addr = IOMMU_REG_ADDR(IOMMU_FQH_OFFSET);
+
+// ipsr
+uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
+
+// icvec
+uintptr_t icvec_addr = IOMMU_REG_ADDR(IOMMU_ICVEC_OFFSET);
+
+// HPM
+uintptr_t iocountovf_addr   = IOMMU_REG_ADDR(IOMMU_IOCOUNTOVF_OFFSET);
+uintptr_t iocountihn_addr = IOMMU_REG_ADDR(IOMMU_IOCOUNTINH_OFFSET);
+uintptr_t iohpmcycles_addr = IOMMU_REG_ADDR(IOMMU_IOHPMCYCLES_OFFSET);
+uintptr_t iohpmctr_addr[8] = {
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 0*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 1*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 2*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 3*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 4*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 5*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 6*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 7*8)
+};
+uintptr_t iohpmevt_addr[8] = {
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 0*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 1*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 2*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 3*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 4*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 5*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 6*8),
+    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 7*8)
+};
+
+// MSI Cfg table
+uintptr_t msi_addr_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_3_OFFSET);
+uintptr_t msi_data_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_3_OFFSET);
+uintptr_t msi_vec_ctl_cq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_3_OFFSET);
+uintptr_t msi_addr_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_2_OFFSET);
+uintptr_t msi_data_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_2_OFFSET);
+uintptr_t msi_vec_ctl_fq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_2_OFFSET);
+uintptr_t msi_addr_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_1_OFFSET);
+uintptr_t msi_data_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_1_OFFSET);
+uintptr_t msi_vec_ctl_hpm_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_1_OFFSET);
+
+// MSI Config data
+uint64_t msi_addr_cq     = 0x83000000ULL;
+uint32_t msi_data_cq     = 0x00ABCDEFUL;
+uint32_t msi_vec_ctl_cq  = 0x1UL;
+
+uint64_t msi_addr_fq     = 0x83001000ULL;
+uint32_t msi_data_fq     = 0xFEDCBA00UL;
+uint32_t msi_vec_ctl_fq  = 0x0UL;
+
+uint64_t msi_addr_hpm     = 0x83002000ULL;
+uint32_t msi_data_hpm     = 0xDEADBEEFUL;
+uint32_t msi_vec_ctl_hpm  = 0x0UL;
+
+// HPM global counters
+uint8_t ut_reqs, iotlb_misses, ddtw, s2_ptw;
 
 static inline void touchread(uintptr_t addr){
     asm volatile("" ::: "memory");
@@ -302,10 +374,71 @@ void init_iommu()
     ddt_init();
     set_iommu_off();
 
-    //# Setup icvec register with an interrupt vector for each cause (CQ and FQ)
-    uintptr_t icvec_addr = IOMMU_REG_ADDR(IOMMU_ICVEC_OFFSET);
-    uint64_t icvec = (FQ_INT_VECTOR << 4) | (CQ_INT_VECTOR << 0);
+    //# Configure MSI Config Table
+    INFO("Configuring MSI config table");
+    // CQ
+    write64(msi_addr_cq_addr,    msi_addr_cq);
+    write32(msi_data_cq_addr,    msi_data_cq);
+    write32(msi_vec_ctl_cq_addr, msi_vec_ctl_cq);
+
+    // FQ
+    write64(msi_addr_fq_addr,    msi_addr_fq);
+    write32(msi_data_fq_addr,    msi_data_fq);
+    write32(msi_vec_ctl_fq_addr, msi_vec_ctl_fq);
+
+    // HPM
+    write64(msi_addr_hpm_addr,    msi_addr_hpm);
+    write32(msi_data_hpm_addr,    msi_data_hpm);
+    write32(msi_vec_ctl_hpm_addr, msi_vec_ctl_hpm);
+
+    INFO("Configuring IGS to WSI");
+    //# Configure the IOMMU to generate interrupts as WSI by default
+    uint32_t fctl = (1UL << 1);
+    write32(fctl_addr, fctl);
+
+    // //# Configure the IOMMU to generate interrupts as MSI
+    // uint32_t fctl = (0UL << 1);
+    // write32(fctl_addr, fctl);
+
+    //# Setup icvec register with an interrupt vector for each cause
+    INFO("Setting up interrupt vectors");
+    uint64_t icvec = (HPM_INT_VECTOR << 8) | (FQ_INT_VECTOR << 4) | (CQ_INT_VECTOR << 0);
     write64(icvec_addr, icvec);
+
+    //# Configure HPM
+    INFO("Configuring HPM");
+    // Program event counter registers
+    uint64_t iohpmevt[4];
+    iohpmevt[0] = HPM_UT_REQ | 
+                    ((0xAULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+                    (IOHPMEVT_DV_GSCV);
+    iohpmevt[1] = HPM_IOTLB_MISS | 
+                    ((0xBULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+                    (IOHPMEVT_DV_GSCV);
+    iohpmevt[2] = HPM_DDTW | 
+                    ((0x0DEFULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+                    (IOHPMEVT_DV_GSCV) | (IOHPMEVT_IDT);
+    // iohpmevt[3] = HPM_S2_PTW | 
+    //                 ((0x0AEFULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+    //                 (IOHPMEVT_DV_GSCV) | (IOHPMEVT_IDT) | (IOHPMEVT_DMASK);
+    iohpmevt[3] = HPM_S2_PTW;
+
+    write64(iohpmevt_addr[0], iohpmevt[0]);
+    write64(iohpmevt_addr[1], iohpmevt[1]);
+    write64(iohpmevt_addr[2], iohpmevt[2]);
+    write64(iohpmevt_addr[3], iohpmevt[3]);
+    // write64(iohpmevt_addr[4], iohpmevt[0]);
+    // write64(iohpmevt_addr[5], iohpmevt[1]);
+    // write64(iohpmevt_addr[6], iohpmevt[2]);
+    // write64(iohpmevt_addr[7], iohpmevt[3]);
+
+    // Set iohpmcycles initial value
+    uint64_t iohpmcycles = 0x7FFFFFFFFFFA0000ULL;
+    write64(iohpmcycles_addr, iohpmcycles);
+
+    // Enable counters by writing to iocountinh
+    uint32_t iocountinh = (uint32_t)(~(CNT_MASK));    // Enable counters
+    write32(iocountihn_addr, iocountinh);
 }
 
 /**********************************************************************************************/
@@ -347,11 +480,9 @@ bool iommu_off(){
 
     //# Check fault record written in memory
     // Read fqh
-    uintptr_t fqh_addr = IOMMU_REG_ADDR(IOMMU_FQH_OFFSET);
     uint64_t fqh = read32(fqh_addr);
 
     // Get address of the next entry in the FQ
-    uintptr_t fqb_addr = IOMMU_REG_ADDR(IOMMU_FQB_OFFSET);
     uint64_t fqb = read64(fqb_addr);
     uintptr_t fq_entry_base = ((fqb & FQB_PPN_MASK) << 2) | (fqh << 5);
 
@@ -385,7 +516,6 @@ bool iommu_off(){
     write32(fqh_addr, (uint32_t)fqh);
 
     // Clear ipsr.fip
-    uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
     write32(ipsr_addr, 0x2UL);
 
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
@@ -532,11 +662,9 @@ bool second_stage_only(){
     cmd_entry[1]    = 0;
 
     // Read cqt
-    uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     uint64_t cqb = read64(cqb_addr);
     uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -629,11 +757,9 @@ bool two_stage_translation(){
     cmd_entry[1]    = 0;
 
     // Read cqt
-    uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     uint64_t cqb = read64(cqb_addr);
     uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -842,11 +968,9 @@ bool iotinval(){
     cmd_entry[1]    = 0;
 
     // Read cqt
-    uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     uint64_t cqb = read64(cqb_addr);
     uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -911,11 +1035,9 @@ bool iotinval(){
     cmd_entry[1]    = 0;
 
     // Read cqt
-    cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     cqb = read64(cqb_addr);
     cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -971,7 +1093,6 @@ bool wsi_generation(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Configure the IOMMU to generate interrupts as WSI
-    uintptr_t fctl_addr = IOMMU_REG_ADDR(IOMMU_FCTL_OFFSET);
     uint32_t fctl = (1UL << 1);
     write32(fctl_addr, fctl);
 
@@ -1002,7 +1123,6 @@ bool wsi_generation(){
         ;
 
     // Check if ipsr.fip was set in case of error
-    uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
     bool check = (read32(ipsr_addr) == 2);
     TEST_ASSERT("ipsr.fip set on FQ recording", check);
 
@@ -1018,11 +1138,9 @@ bool wsi_generation(){
     // Check CAUSE, TTYP, iotval and iotval2 according to the fault.
 
     // Read fqh
-    uintptr_t fqh_addr = IOMMU_REG_ADDR(IOMMU_FQH_OFFSET);
     uint64_t fqh = read32(fqh_addr);
 
     // Get address of the next entry in the FQ
-    uintptr_t fqb_addr = IOMMU_REG_ADDR(IOMMU_FQB_OFFSET);
     uint64_t fqb = read64(fqb_addr);
     uintptr_t fq_entry_base = ((fqb & FQB_PPN_MASK) << 2) | (fqh << 5);
 
@@ -1086,11 +1204,9 @@ bool iofence(){
     cmd_entry[1]    = (IOFENCE_ADDR >> 2);
 
     // Read cqt
-    uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     uint64_t cqb = read64(cqb_addr);
     uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -1098,7 +1214,6 @@ bool iofence(){
     write64(cq_entry_base, cmd_entry[0]);
     write64(cq_entry_base + 8, cmd_entry[1]);
 
-    uintptr_t cqh_addr = IOMMU_REG_ADDR(IOMMU_CQH_OFFSET);
     uint32_t cqh = read32(cqh_addr);
 
     // Flush cache
@@ -1116,13 +1231,11 @@ bool iofence(){
     TEST_ASSERT("cqh was incremented", check);
 
     // Check whether cqcsr.fence_w_ip was set
-    uintptr_t cqcsr_addr = IOMMU_REG_ADDR(IOMMU_CQCSR_OFFSET);
     uint32_t cqcsr = read32(cqcsr_addr);
     check = ((cqcsr & CQCSR_FENCE_W_IP) != 0);
     TEST_ASSERT("cqcsr.fence_w_ip was set", check);
 
     // Check if ipsr.cip was set for WSI = 1
-    uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
     check = ((read32(ipsr_addr) & CIP_MASK) == 1);
     TEST_ASSERT("ipsr.cip setting on IOFENCE completion", check);
 
@@ -1152,46 +1265,8 @@ bool msi_generation(){
     VERBOSE("CQ interrupt vector masked");
 
     //# Configure the IOMMU to generate interrupts as MSI
-    uintptr_t fctl_addr = IOMMU_REG_ADDR(IOMMU_FCTL_OFFSET);
     uint32_t fctl = (0UL << 1);
     write32(fctl_addr, fctl);
-
-    //# Configure MSI Config Table
-    uintptr_t msi_addr_3_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_3_OFFSET);
-    uintptr_t msi_data_3_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_3_OFFSET);
-    uintptr_t msi_vec_ctl_3_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_3_OFFSET);
-
-    uint64_t msi_addr_3     = 0x83000000ULL;
-    uint32_t msi_data_3     = 0x00ABCDEFUL;
-    uint32_t msi_vec_ctl_3  = 0x1UL;
-
-    write64(msi_addr_3_addr,    msi_addr_3);
-    write32(msi_data_3_addr,    msi_data_3);
-    write32(msi_vec_ctl_3_addr, msi_vec_ctl_3);
-
-    // uintptr_t msi_addr_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_10_OFFSET);
-    // uintptr_t msi_data_10_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_10_OFFSET);
-    // uintptr_t msi_vec_ctl_10_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_10_OFFSET);
-
-    uintptr_t msi_addr_2_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_2_OFFSET);
-    uintptr_t msi_data_2_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_2_OFFSET);
-    uintptr_t msi_vec_ctl_2_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_2_OFFSET);
-
-    // uint64_t msi_addr_10     = 0x83001000ULL;
-    // uint32_t msi_data_10     = 0xFEDCBA00UL;
-    // uint32_t msi_vec_ctl_10  = 0x0UL;
-
-    uint64_t msi_addr_2     = 0x83001000ULL;
-    uint32_t msi_data_2     = 0xFEDCBA00UL;
-    uint32_t msi_vec_ctl_2  = 0x0UL;
-
-    // write64(msi_addr_10_addr,    msi_addr_10);
-    // write32(msi_data_10_addr,    msi_data_10);
-    // write32(msi_vec_ctl_10_addr, msi_vec_ctl_10);
-
-    write64(msi_addr_2_addr,    msi_addr_2);
-    write32(msi_data_2_addr,    msi_data_2);
-    write32(msi_vec_ctl_2_addr, msi_vec_ctl_2);
 
     //# Induce a fault in the FQ with a misconfigured translation
     uintptr_t read_paddr1 = phys_page_base(MSI_GEN_R);
@@ -1224,11 +1299,9 @@ bool msi_generation(){
     cmd_entry[1]    = 0;
 
     // Read cqt
-    uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
     uint64_t cqb = read64(cqb_addr);
     uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
 
@@ -1245,19 +1318,17 @@ bool msi_generation(){
 
     //# Checks
     // Check whether cqcsr.cmd_ill was set
-    uintptr_t cqcsr_addr = IOMMU_REG_ADDR(IOMMU_CQCSR_OFFSET);
     uint32_t cqcsr = read32(cqcsr_addr);
     bool check = ((cqcsr & CQCSR_CMD_ILL) != 0);
     TEST_ASSERT("cqcsr.cmd_ill was set", check);
 
     // Check if ipsr.cip and ipsr.fip were set
-    uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
     check = ((read32(ipsr_addr) & (CIP_MASK | FIP_MASK)) == 3);
     TEST_ASSERT("ipsr.cip and ipsr.fip were set", check);
 
     // Check data for FQ vector
-    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_2);
-    check = (fq_msi_data == msi_data_2);
+    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_fq);
+    check = (fq_msi_data == msi_data_fq);
     TEST_ASSERT("MSI data corresponding to FQ interrupt vector matches", check);
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
@@ -1265,16 +1336,179 @@ bool msi_generation(){
     write32(ipsr_addr, 0x3UL);
 
     // Clear mask of CQ interrupt vector
-    msi_vec_ctl_3  = 0x0UL;
-    write32(msi_vec_ctl_3_addr, msi_vec_ctl_3);
+    msi_vec_ctl_cq  = 0x0UL;
+    write32(msi_vec_ctl_cq_addr, msi_vec_ctl_cq);
 
     // Flush cache
     fence_i();
 
     // Check data for CQ vector after clearing mask
-    uint32_t cq_msi_data = read32((uintptr_t)msi_addr_3);
-    check = (cq_msi_data == msi_data_3);
+    uint32_t cq_msi_data = read32((uintptr_t)msi_addr_cq);
+    check = (cq_msi_data == msi_data_cq);
     TEST_ASSERT("MSI data corresponding to CQ interrupt vector matches after clearing mask", check);
+
+    TEST_END();
+}
+
+bool hpm(){
+
+    // Print the name of the test and create test_status variable
+    TEST_START();
+
+    set_iommu_1lvl();
+    set_iosatp_sv39();
+    set_iohgatp_sv39x4();
+    set_msi_flat();
+    VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
+
+    // Flush cache
+    fence_i();
+
+    //# Clock counter overflow: WSI
+    INFO("Configuring IGS to WSI");
+    // Configure the IOMMU to generate interrupts as WSI
+    uint32_t fctl = (1UL << 1);
+    write32(fctl_addr, fctl);
+
+    // Clear ipsr.fip
+    write32(ipsr_addr, 0x7UL);
+
+    // Disable clock counter
+    uint32_t iocountinh = read32(iocountihn_addr) | 0x1UL;
+    write32(iocountihn_addr, iocountinh);
+
+    // Set iohpmcycles initial value
+    uint64_t iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
+    write64(iohpmcycles_addr, iohpmcycles);
+
+    // Enable clock counter
+    iocountinh &= (~0x1UL);
+    write32(iocountihn_addr, iocountinh);
+
+    // Monitor CY bit of iohpmcycles, wait for it to go high
+    do
+    {
+        iohpmcycles = read64(iohpmcycles_addr);
+        printf("iohpmcycles value: %llx\n", iohpmcycles);
+        for (size_t i = 0; i < 10000; i++)
+            ;
+    }
+    while (!(iohpmcycles & (0x1ULL << 63)));
+    
+    // Check iocountovf bit
+    uint32_t iocountovf = read32(iocountovf_addr);
+    bool check = (iocountovf & 0x1UL);
+    TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
+
+    // Check ipsr.pmip and corresponding interrupt
+    check = (read32(ipsr_addr) == 4);
+    TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
+
+    // Clear ipsr
+    write32(ipsr_addr, 0x7UL);
+
+    //# Clock counter overflow: MSI
+    // Configure the IOMMU to generate interrupts as MSI
+    INFO("Configuring IGS to MSI");
+    fctl = (0UL << 1);
+    write32(fctl_addr, fctl);
+
+    // Disable clock counter
+    iocountinh = read32(iocountihn_addr) | 0x1UL;
+    write32(iocountihn_addr, iocountinh);
+
+    // Set iohpmcycles initial value
+    // iohpmcycles = 0xFFFFFFFFFFFFF000ULL;
+    iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
+    write64(iohpmcycles_addr, iohpmcycles);
+
+    // Enable clock counter
+    iocountinh &= (~0x1UL);
+    write32(iocountihn_addr, iocountinh);
+
+    // Monitor CY bit of iohpmcycles, wait for it to go high
+    do
+    {
+        iohpmcycles = read64(iohpmcycles_addr);
+        printf("iohpmcycles value: %llx\n", iohpmcycles);
+        for (size_t i = 0; i < 10000; i++)
+            ;
+    }
+    // while ((iohpmcycles & (0x1ULL << 62)));
+    while (!(iohpmcycles & (0x1ULL << 63)));
+    
+    // Check iocountovf bit
+    iocountovf = read32(iocountovf_addr);
+    check = (iocountovf & 0x1UL);
+    TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
+
+    // Check ipsr.pmip and corresponding interrupt
+    check = (read32(ipsr_addr) == 4);
+    TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
+
+    // Check data for HPM vector
+    uint32_t hpm_msi_data = read32((uintptr_t)msi_addr_hpm);
+    check = (hpm_msi_data == msi_data_hpm);
+    TEST_ASSERT("MSI data corresponding to HPM interrupt vector matches", check);
+
+    // Clear ipsr
+    write32(ipsr_addr, 0x7UL);
+
+    //# Event counter overflow
+    INFO("Configuring IGS to WSI");
+    // Configure the IOMMU to generate interrupts as WSI
+    fctl = (1UL << 1);
+    write32(fctl_addr, fctl);
+
+    // Disable iohpmctr[3]
+    iocountinh = read32(iocountihn_addr) | 0x10UL;  // Event ctr 3
+    write32(iocountihn_addr, iocountinh);
+
+    // Set iohpmctr[3] initial value
+    uint64_t iohpmctr = 0xFFFFFFFFFFFFFFFFULL;
+    write64(iohpmctr_addr[3], iohpmctr);    // Event ctr 3
+
+    // Enable iohpmctr[3]
+    iocountinh &= (~0x10UL);
+    write32(iocountihn_addr, iocountinh);
+
+    // Trigger two-stage translation to increment counter
+    uintptr_t read_paddr1 = phys_page_base(HPM_R);
+    uintptr_t read_vaddr1 = virt_page_base(HPM_R);
+
+    uintptr_t write_paddr1 = phys_page_base(HPM_W);
+    uintptr_t write_vaddr1 = virt_page_base(HPM_W);
+
+    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes, 8);                    // N of bytes to be transferred
+    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+
+    // Check if iDMA was set up properly and init transfer
+    uint64_t trans_id = read64(idma_nextid);
+    if (!trans_id)
+        {ERROR("iDMA misconfigured")}
+
+    // Poll transfer status
+    while (read64(idma_done) != trans_id)
+        ;
+
+    // Check iohpmevt.OF
+    uint64_t iohpmevt_3 = read64(iohpmevt_addr[3]);
+    check = (iohpmevt_3 & IOHPMEVT_OF);
+    TEST_ASSERT("iohpmevt_3.OF is set upon iohpmctr[3] overflow", check);
+
+    // Check iocountovf.HPM[3]
+    iocountovf = read32(iocountovf_addr);
+    check = (iocountovf & 0x10UL);
+    TEST_ASSERT("iocountovf.hpm[3] is set upon iohpmctr[3] overflow", check);
+
+    // Check ipsr.pmip and corresponding interrupt
+    check = (read32(ipsr_addr) == 4);
+    TEST_ASSERT("ipsr.pmip set upon iohpmctr[3] overflow", check);
+
+    // Clear ipsr
+    write32(ipsr_addr, 0x7UL);
 
     TEST_END();
 }
