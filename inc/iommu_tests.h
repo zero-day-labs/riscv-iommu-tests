@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include <csrs.h>
 #include <instructions.h>
@@ -16,21 +17,18 @@
 #define IOMMU_OFF           (0)   // Turn off IOMMU
 #define IOMMU_BARE          (0)   // Set IOMMU to bare (bypass transactions)
 
-// device_id width assumed to be AXI ID width
-// 6, 15, 24
-#define DEVICE_ID_WIDTH     (6)
-
-// Device Context Format (1 for extended format, 0 for base format)
-#define DC_EXT_FORMAT       (1)
-
 #define CQ_INT_VECTOR       (0x03ULL)
 #define FQ_INT_VECTOR       (0x02ULL)
 #define HPM_INT_VECTOR      (0x01ULL)
 
 #define CIP_MASK            (1UL << 0)
 #define FIP_MASK            (1UL << 1)
+#define PMIP_MASK           (1UL << 2)
 
 #define PAGE_SIZE           0x1000ULL     // 4kiB
+
+// Number of transfers for stress latency test
+#define N_TRANSFERS         (100)
 
 // Base address of the IOMMU Programming Interface
 #define IOMMU_BASE_ADDR             0x50010000ULL
@@ -106,6 +104,8 @@
 #define IOMMU_REG_ADDR(OFF)     (IOMMU_BASE_ADDR + OFF)
 
 //# iDMA
+// Number of DMA devices in the platform
+#define N_DMA           (4)
 
 #define IDMA_DECOUPLE   (1ULL << 0)
 #define IDMA_DEBURST    (1ULL << 1)
@@ -115,15 +115,16 @@
 #define IDMA_BASE_ADDR             0x50000000ULL
 
 // Register offsets
-#define IDMA_SRC_ADDR   0x0
-#define IDMA_DEST_ADDR  0x8
-#define IDMA_N_BYTES    0x10
-#define IDMA_CONFIG     0x18
-#define IDMA_STATUS     0x20
-#define IDMA_NEXT_ID    0x28
-#define IDMA_DONE       0x30
+#define IDMA_SRC_ADDR_OFF   0x0
+#define IDMA_DEST_ADDR_OFF  0x8
+#define IDMA_N_BYTES_OFF    0x10
+#define IDMA_CONFIG_OFF     0x18
+#define IDMA_STATUS_OFF     0x20
+#define IDMA_NEXT_ID_OFF    0x28
+#define IDMA_DONE_OFF       0x30
+#define IDMA_IPSR_OFF       0x38
 
-#define IDMA_REG_ADDR(OFF)      (IDMA_BASE_ADDR + OFF)
+#define IDMA_REG_ADDR(INDEX, OFF)      (IDMA_BASE_ADDR + (INDEX * 0x1000ULL) + OFF)
 
 typedef uint64_t pte_t;
 

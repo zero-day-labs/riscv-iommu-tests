@@ -4,7 +4,7 @@
 #include <iommu_tests.h>
 
 // Enabled counters
-#define CNT_MASK    (0x0000001FUL)
+#define CNT_MASK    (0x0000003EUL)
 
 // eventIDs
 #define HPM_UT_REQ      (0x1ULL)

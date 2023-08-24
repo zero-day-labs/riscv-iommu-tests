@@ -44,7 +44,7 @@ struct {
     [HPM_R]             =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [HPM_W]             =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},    
     [SWITCH1]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
-    [SWITCH2]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
+    [SWITCH2]           =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX}, 
     [MSI_W1]            =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [MSI_W2]            =   {PTE_V | PTE_U | PTE_RWX,   PTE_V | PTE_U | PTE_RWX},
     [PT_TOP]            =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
@@ -102,8 +102,16 @@ void s1pt_init(){
 
     //# Fill s1pt[3][i] with 4-kiB PTEs
     for(int i = 0; i < TEST_PAGE_MAX; i++){
-        s1pt[3][i] = (addr >> 2) | PTE_AD |
-            test_page_perm_table[i].stage1;
+        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        {
+            s1pt[3][i] = (addr >> 2) | PTE_AD |
+            PTE_V | PTE_U | PTE_RWX;
+        }
+        else
+        {
+            s1pt[3][i] = (addr >> 2) | PTE_AD |
+                test_page_perm_table[i].stage1;
+        }
         addr +=  PAGE_SIZE;
     }
 
@@ -115,10 +123,18 @@ void s1pt_init(){
 
     //# Fill s1pt[4][i] with 4-kiB PTEs
     for(int i = 0; i < 512; i++){
-        s1pt[4][i] = (addr >> 2) | 
-            PTE_V | PTE_AD | PTE_RWX; 
+        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        {
+            s1pt[4][i] = (addr >> 2) | PTE_AD |
+            PTE_V | PTE_U | PTE_RWX;
+        }
+        else
+        {
+            s1pt[4][i] = (addr >> 2) | PTE_AD |
+                test_page_perm_table[i].stage1;
+        }
         addr +=  PAGE_SIZE;
-    }  
+    }
 
     // Setup non-leaf entry pointing to fifth-level PT (s1pt[5][0]) from root table
     s1pt[0][5] = 
@@ -132,24 +148,6 @@ void s1pt_init(){
              PTE_V | PTE_AD | PTE_RWX;  
         addr +=  SUPERPAGE_SIZE(1);
     }
-
-    // // Configure satp according to the originating privilege mode
-    // uintptr_t iosatp = (((uintptr_t)s1pt) >> 12) | (0x8ULL << 60);
-
-    // // If VS-mode (Guest OS running on top of a hypervisor)
-    // if(curr_priv == PRIV_VS){
-    //     CSRW(satp, satp);
-    // }
-    
-    // // If HS-mode (Hypervisor/Host OS) or M-mode
-    // else if(curr_priv == PRIV_HS || curr_priv == PRIV_M){
-    //     CSRW(CSR_VSATP, satp);
-    // }
-    
-    // // Insufficient privilege level
-    // else {
-    //     ERROR("");
-    // }
 }
 
 // Root table (Sv39x4) (2048 PTEs pointing to 16-kiB pages)
@@ -213,8 +211,16 @@ void s2pt_init(){
 
     //# Fill the third-level table (s2pt[2][i]) with 4-kiB PTEs
     for(int i = 0; i < TEST_PAGE_MAX; i++){
-        s2pt[2][i] = (addr >> 2) | PTE_AD |
-            test_page_perm_table[i].stage2;  
+        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        {
+            s2pt[2][i] = (addr >> 2) | PTE_AD |
+            PTE_V | PTE_U | PTE_RWX;
+        }
+        else
+        {
+            s2pt[2][i] = (addr >> 2) | PTE_AD |
+                test_page_perm_table[i].stage2;
+        }
         addr +=  PAGE_SIZE;
     }
 
@@ -226,10 +232,18 @@ void s2pt_init(){
 
     //# Fill s2pt[3][i] with 4-kiB PTEs defined in the table
     for(int i = 0; i < 512; i++){
-        s2pt[3][i] = (addr >> 2) | 
-            PTE_V | PTE_U | PTE_AD | PTE_RWX; 
+        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        {
+            s2pt[3][i] = (addr >> 2) | PTE_AD |
+            PTE_V | PTE_U | PTE_RWX;
+        }
+        else
+        {
+            s2pt[3][i] = (addr >> 2) | PTE_AD |
+                test_page_perm_table[i].stage2;
+        }
         addr +=  PAGE_SIZE;
-    }  
+    }
 
     // Non-leaf entry pointing to s2pt[4][0] from root table
     s2pt_root[5] =
@@ -243,14 +257,6 @@ void s2pt_init(){
              PTE_V | PTE_U | PTE_AD | PTE_RWX;  
         addr +=  SUPERPAGE_SIZE(1);
     }
-
-    // // Configure hgatp with the PPN of the root table + Sv39x4 scheme
-    // if(curr_priv == PRIV_HS || curr_priv == PRIV_M){
-    //     uintptr_t hgatp = (((uintptr_t)s2pt_root) >> 12) | (0x8ULL << 60);
-    //     CSRW(CSR_HGATP, hgatp);
-    // } else {
-    //     ERROR("trying to set hs hgatp from lower privilege");
-    // }
 }
 
 // Swap two 4-kiB PTEs associated with the permission table (first-stage w/ V=1)

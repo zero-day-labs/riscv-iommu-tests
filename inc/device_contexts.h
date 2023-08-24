@@ -3,8 +3,21 @@
 
 #include <iommu_tests.h>
 
+// DC format
+#define DC_EXT_FORMAT       (0)
+
 // Number of entries of the root DDT (4-kiB / 64 bytes p/ entry)
-#define DDT_N_ENTRIES       (0x1000 / 64)   // 64 entries
+#if (DC_EXT_FORMAT == 1)
+# define DDT_N_ENTRIES      (0x1000 / 64)   // 64 entries
+# define DC_SIZE            (8)
+#else
+# define DDT_N_ENTRIES      (0x1000 / 32)   // 128 entries
+# define DC_SIZE            (4)
+#endif
+
+// Min and max device ID of DMA devices in the platform. Used to fill DDT
+#define DID_MIN             (1)
+#define DID_MAX             (14)
 
 // HW device_id of the DMA device. Defined for invalidation
 #define DEVICE_ID           (0xAULL)

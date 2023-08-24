@@ -61,5 +61,8 @@
 extern uint64_t command_queue[];
 
 void cq_init(void);
+void ddt_inval(bool dv, uint64_t device_id);
+void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid);
+void iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
 
 #endif  /* COMMAND_QUEUE_H*/

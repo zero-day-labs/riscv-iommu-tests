@@ -23,13 +23,67 @@
  *      in bare mode so we can write directly using physical addresses.
  */
 
-uintptr_t idma_src    = IDMA_REG_ADDR(IDMA_SRC_ADDR);
-uintptr_t idma_dest   = IDMA_REG_ADDR(IDMA_DEST_ADDR);
-uintptr_t idma_nbytes = IDMA_REG_ADDR(IDMA_N_BYTES);
-uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
-uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
-uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
-uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
+uintptr_t idma_src[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_SRC_ADDR_OFF),
+    IDMA_REG_ADDR(1, IDMA_SRC_ADDR_OFF),
+    IDMA_REG_ADDR(2, IDMA_SRC_ADDR_OFF),
+    IDMA_REG_ADDR(3, IDMA_SRC_ADDR_OFF)
+};
+
+uintptr_t idma_dest[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_DEST_ADDR_OFF),
+    IDMA_REG_ADDR(1, IDMA_DEST_ADDR_OFF),
+    IDMA_REG_ADDR(2, IDMA_DEST_ADDR_OFF),
+    IDMA_REG_ADDR(3, IDMA_DEST_ADDR_OFF)
+};
+
+uintptr_t idma_nbytes[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_N_BYTES_OFF),
+    IDMA_REG_ADDR(1, IDMA_N_BYTES_OFF),
+    IDMA_REG_ADDR(2, IDMA_N_BYTES_OFF),
+    IDMA_REG_ADDR(3, IDMA_N_BYTES_OFF)
+};
+
+uintptr_t idma_config[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_CONFIG_OFF),
+    IDMA_REG_ADDR(1, IDMA_CONFIG_OFF),
+    IDMA_REG_ADDR(2, IDMA_CONFIG_OFF),
+    IDMA_REG_ADDR(3, IDMA_CONFIG_OFF)
+};
+
+uintptr_t idma_status[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_STATUS_OFF),
+    IDMA_REG_ADDR(1, IDMA_STATUS_OFF),
+    IDMA_REG_ADDR(2, IDMA_STATUS_OFF),
+    IDMA_REG_ADDR(3, IDMA_STATUS_OFF)
+};
+uintptr_t idma_nextid[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_NEXT_ID_OFF),
+    IDMA_REG_ADDR(1, IDMA_NEXT_ID_OFF),
+    IDMA_REG_ADDR(2, IDMA_NEXT_ID_OFF),
+    IDMA_REG_ADDR(3, IDMA_NEXT_ID_OFF)
+};
+
+uintptr_t idma_done[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_DONE_OFF),
+    IDMA_REG_ADDR(1, IDMA_DONE_OFF),
+    IDMA_REG_ADDR(2, IDMA_DONE_OFF),
+    IDMA_REG_ADDR(3, IDMA_DONE_OFF)
+};
+
+uintptr_t idma_ipsr[N_DMA] = {
+    IDMA_REG_ADDR(0, IDMA_IPSR_OFF),
+    IDMA_REG_ADDR(1, IDMA_IPSR_OFF),
+    IDMA_REG_ADDR(2, IDMA_IPSR_OFF),
+    IDMA_REG_ADDR(3, IDMA_IPSR_OFF)
+};
+
+uint64_t device_ids[N_DMA] = {
+    1ULL,
+    2ULL,
+    3ULL,
+    4ULL
+};
 
 // fctl
 uintptr_t fctl_addr = IOMMU_REG_ADDR(IOMMU_FCTL_OFFSET);
@@ -126,13 +180,15 @@ bool idma_only(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    bool check;
+
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
-    uintptr_t read_paddr1 = phys_page_base(SWITCH1);
-    uintptr_t read_paddr2 = phys_page_base(SWITCH2);
+    uintptr_t read_paddr1 = phys_page_base(BARE_TRANS_R1);
+    uintptr_t read_paddr2 = phys_page_base(BARE_TRANS_R2);
     // and others for the destination address where the iDMA will write the read values
-    uintptr_t write_paddr1 = phys_page_base(SWITCH1);
-    uintptr_t write_paddr2 = phys_page_base(SWITCH2);
+    uintptr_t write_paddr1 = phys_page_base(BARE_TRANS_W1);
+    uintptr_t write_paddr2 = phys_page_base(BARE_TRANS_W2);
 
     //# Write known values to memory
     // Write some values to memory using physical addresses (Core MMU in bare mode).
@@ -146,56 +202,52 @@ bool idma_only(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    uintptr_t idma_src    = IDMA_REG_ADDR(IDMA_SRC_ADDR);
-    uintptr_t idma_dest   = IDMA_REG_ADDR(IDMA_DEST_ADDR);
-    uintptr_t idma_nbytes = IDMA_REG_ADDR(IDMA_N_BYTES);
-    uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
-    uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
-    uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
-    uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
-
-    write64(idma_src, (uint64_t)read_paddr1); // Source address
-    write64(idma_dest, (uint64_t)write_paddr1);  // Destination address
-    write64(idma_nbytes, 8);                     // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
-
-    // while (read64(idma_status) & 0x1ULL == 1)
-    //     ;
+    write64(idma_src[0], (uint64_t)read_paddr1); // Source address
+    write64(idma_dest[0], (uint64_t)write_paddr1);  // Destination address
+    write64(idma_nbytes[0], 8);                     // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check first transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    bool check1, check2 = (read64(write_paddr1) == 0x11);
+    bool check1 = (read64(write_paddr1) == 0x11);
+
+    // check = (read64(idma_ipsr[0]) == 3);
+    // TEST_ASSERT("iDMA interrupt pending bits set", check1);
+
+    // write64(idma_ipsr[0], (uint64_t) 0x03);
+
+    // check1 = (read64(idma_ipsr[0]) == 0);
+    // TEST_ASSERT("iDMA interrupt pending bits cleared after writing 1", check1);
 
     /*------------- SECOND TRANSFER --------------*/
 
-    write64(idma_src, (uint64_t)read_paddr2); // Source address
-    write64(idma_dest, (uint64_t)write_paddr2);  // Destination address
-
-    while (read64(idma_status) & 0x1ULL == 1)
-        ;
+    write64(idma_src[1], (uint64_t)read_paddr2); // Source address
+    write64(idma_dest[1], (uint64_t)write_paddr2);  // Destination address
+    write64(idma_nbytes[1], 8);                     // N of bytes to be transferred
+    write64(idma_config[1], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[1]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[1]) != trans_id)
         ;
 
     //# Check second transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    check2 = (read64(write_paddr2) == 0x22);
-    TEST_ASSERT("iDMA directly connected to system bus", (check1 && check2));
+    bool check2 = (read64(write_paddr2) == 0x22);
+    TEST_ASSERT("Single transfer without IOMMU", (check1 && check2));
 
     TEST_END();
 }
@@ -214,11 +266,11 @@ bool idma_only_multiple_beats(){
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
-    uintptr_t start_raddr1 = phys_page_base(SWITCH1);
-    uintptr_t start_raddr2 = phys_page_base(SWITCH2);
+    uintptr_t start_raddr1 = phys_page_base(IOMMU_OFF_R);
+    uintptr_t start_raddr2 = phys_page_base(IOMMU_BARE_R);
     // and others for the destination address where the iDMA will write the read values
-    uintptr_t start_waddr1 = phys_page_base(SWITCH1);
-    uintptr_t start_waddr2 = phys_page_base(SWITCH2);
+    uintptr_t start_waddr1 = phys_page_base(IOMMU_OFF_W);
+    uintptr_t start_waddr2 = phys_page_base(IOMMU_BARE_W);
 
     //# Write known values to memory
     // Write some values to memory using physical addresses (Core MMU in bare mode).
@@ -242,59 +294,51 @@ bool idma_only_multiple_beats(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    uintptr_t idma_src    = IDMA_REG_ADDR(IDMA_SRC_ADDR);
-    uintptr_t idma_dest   = IDMA_REG_ADDR(IDMA_DEST_ADDR);
-    uintptr_t idma_nbytes = IDMA_REG_ADDR(IDMA_N_BYTES);
-    uintptr_t idma_config = IDMA_REG_ADDR(IDMA_CONFIG);
-    uintptr_t idma_status = IDMA_REG_ADDR(IDMA_STATUS);
-    uintptr_t idma_nextid = IDMA_REG_ADDR(IDMA_NEXT_ID);
-    uintptr_t idma_done   = IDMA_REG_ADDR(IDMA_DONE);
-
-    write64(idma_src, (uint64_t)start_raddr1);  // Source address
-    write64(idma_dest, (uint64_t)start_waddr1); // Destination address
-    write64(idma_nbytes, 24);                   // N of bytes to be transferred
-    write64(idma_config, 0 );       // iDMA config
+    write64(idma_src[2], (uint64_t)start_raddr1);  // Source address
+    write64(idma_dest[2], (uint64_t)start_waddr1); // Destination address
+    write64(idma_nbytes[2], 24);                   // N of bytes to be transferred
+    write64(idma_config[2], 0 );       // iDMA config
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[2]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[2]) != trans_id)
         ;
+
 
     //# Check first transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
     bool check1, check2;
-    check1 =    ((read64(start_waddr1     ) == 0x00) &&
+    check1 =   ((read64(start_waddr1     ) == 0x00) &&
                 (read64(start_waddr1 + 8 ) == 0x10) &&
                 (read64(start_waddr1 + 16) == 0x20));
 
     /*------------- SECOND TRANSFER --------------*/
 
-    write64(idma_src, (uint64_t)start_raddr2); // Source address
-    write64(idma_dest, (uint64_t)start_waddr2);  // Destination address
-
-    // while (read64(idma_status) & 0x1ULL == 1)
-    //     ;
+    write64(idma_src[3], (uint64_t)start_raddr2); // Source address
+    write64(idma_dest[3], (uint64_t)start_waddr2);  // Destination address
+    write64(idma_nbytes[3], 24);                   // N of bytes to be transferred
+    write64(idma_config[3], 0 );       // iDMA config
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[3]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[3]) != trans_id)
         ;
 
     //# Check second transfer
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
-    check2 =    ((read64(start_waddr2     ) == 0x80) &&
+    check2 =   ((read64(start_waddr2     ) == 0x80) &&
                 (read64(start_waddr2 + 8 ) == 0x90) &&
                 (read64(start_waddr2 + 16) == 0xA0));
 
-    TEST_ASSERT("iDMA directly connected to system bus", (check1 && check2));
+    TEST_ASSERT("Multi-beat transfers without IOMMU", (check1 && check2));
 
     TEST_END();
 }
@@ -370,7 +414,6 @@ void init_iommu()
     // Define an MSI address mask of 5 bits set for the DC.
     // Define an MSI address pattern for the DC, following the format defined in the mask.
     INFO("Configuring DDT");
-    VERBOSE("IOMMU off | iohgatp: Bare | iosatp: Bare");
     ddt_init();
     set_iommu_off();
 
@@ -408,37 +451,36 @@ void init_iommu()
     //# Configure HPM
     INFO("Configuring HPM");
     // Program event counter registers
-    uint64_t iohpmevt[4];
-    iohpmevt[0] = HPM_UT_REQ | 
-                    ((0xAULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
-                    (IOHPMEVT_DV_GSCV);
-    iohpmevt[1] = HPM_IOTLB_MISS | 
-                    ((0xBULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
-                    (IOHPMEVT_DV_GSCV);
-    iohpmevt[2] = HPM_DDTW | 
-                    ((0x0DEFULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
-                    (IOHPMEVT_DV_GSCV) | (IOHPMEVT_IDT);
+    uint64_t iohpmevt[5];
+    // iohpmevt[0] = HPM_UT_REQ | 
+    //                 ((0xAULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+    //                 (IOHPMEVT_DV_GSCV);
+    // iohpmevt[1] = HPM_IOTLB_MISS | 
+    //                 ((0xBULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+    //                 (IOHPMEVT_DV_GSCV);
+    // iohpmevt[2] = HPM_DDTW | 
+    //                 ((0x0DEFULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
+    //                 (IOHPMEVT_DV_GSCV) | (IOHPMEVT_IDT);
     // iohpmevt[3] = HPM_S2_PTW | 
     //                 ((0x0AEFULL << IOHPMEVT_DID_GSCID_OFF) & (IOHPMEVT_DID_GSCID_MASK)) |
     //                 (IOHPMEVT_DV_GSCV) | (IOHPMEVT_IDT) | (IOHPMEVT_DMASK);
-    iohpmevt[3] = HPM_S2_PTW;
+    iohpmevt[0] = HPM_UT_REQ;
+    iohpmevt[1] = HPM_IOTLB_MISS;
+    iohpmevt[2] = HPM_DDTW;
+    iohpmevt[3] = HPM_S1_PTW;
+    iohpmevt[4] = HPM_S2_PTW;
 
     write64(iohpmevt_addr[0], iohpmevt[0]);
     write64(iohpmevt_addr[1], iohpmevt[1]);
     write64(iohpmevt_addr[2], iohpmevt[2]);
     write64(iohpmevt_addr[3], iohpmevt[3]);
-    // write64(iohpmevt_addr[4], iohpmevt[0]);
-    // write64(iohpmevt_addr[5], iohpmevt[1]);
-    // write64(iohpmevt_addr[6], iohpmevt[2]);
-    // write64(iohpmevt_addr[7], iohpmevt[3]);
-
-    // Set iohpmcycles initial value
-    uint64_t iohpmcycles = 0x7FFFFFFFFFFA0000ULL;
-    write64(iohpmcycles_addr, iohpmcycles);
+    write64(iohpmevt_addr[4], iohpmevt[4]);
 
     // Enable counters by writing to iocountinh
     uint32_t iocountinh = (uint32_t)(~(CNT_MASK));    // Enable counters
     write32(iocountihn_addr, iocountinh);
+
+    VERBOSE("IOMMU off | iohgatp: Bare | iosatp: Bare | msiptp: Flat");
 }
 
 /**********************************************************************************************/
@@ -449,6 +491,7 @@ bool iommu_off(){
     TEST_START();
 
     //# Set IOMMU off
+    fence_i();
     set_iommu_off();
     VERBOSE("IOMMU Off");
 
@@ -464,18 +507,18 @@ bool iommu_off(){
     write64(write_paddr1, 0x00);
 
     //# Program the iDMA
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check fault record written in memory
@@ -516,7 +559,7 @@ bool iommu_off(){
     write32(fqh_addr, (uint32_t)fqh);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x2UL);
+    write32(ipsr_addr, 0x7UL);
 
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
@@ -530,6 +573,7 @@ bool iommu_bare(){
     TEST_START();
 
     //# Set IOMMU to Bare
+    fence_i();
     set_iommu_bare();
     VERBOSE("IOMMU in Bare mode");
 
@@ -548,18 +592,18 @@ bool iommu_bare(){
     write64(start_waddr1 + 8 , 0x00);
     write64(start_waddr1 + 16, 0x00);
 
-    write64(idma_src, (uint64_t)start_raddr1);  // Source address
-    write64(idma_dest, (uint64_t)start_waddr1); // Destination address
-    write64(idma_nbytes, 24);                   // N of bytes to be transferred
-    write64(idma_config, 0 );                   // iDMA config
+    write64(idma_src[0], (uint64_t)start_raddr1);  // Source address
+    write64(idma_dest[0], (uint64_t)start_waddr1); // Destination address
+    write64(idma_nbytes[0], 24);                   // N of bytes to be transferred
+    write64(idma_config[0], 0 );                   // iDMA config
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check transfer
@@ -568,8 +612,6 @@ bool iommu_bare(){
                 (read64(start_waddr1 + 8 ) == 0x10) &&
                 (read64(start_waddr1 + 16) == 0x20));
     TEST_ASSERT("Memory transfer with IOMMU in Bare mode: All values match", check);
-
-    TEST_END();
 }
 
 bool both_stages_bare(){
@@ -577,6 +619,7 @@ bool both_stages_bare(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_bare();
     set_iohgatp_bare();
@@ -597,18 +640,18 @@ bool both_stages_bare(){
     write64(write_paddr1, 0x00);
     write64(write_paddr2, 0x00);
 
-    write64(idma_src, (uint64_t)read_paddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_paddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_paddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_paddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check first transfer
@@ -617,16 +660,16 @@ bool both_stages_bare(){
 
     /*------- SECOND TRANSFER -------*/
 
-    write64(idma_src, (uint64_t)read_paddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_paddr2); // Destination address
+    write64(idma_src[0], (uint64_t)read_paddr2);   // Source address
+    write64(idma_dest[0], (uint64_t)write_paddr2); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check second transfer
@@ -641,6 +684,7 @@ bool second_stage_only(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_bare();
     set_iohgatp_sv39x4();
@@ -657,7 +701,7 @@ bool second_stage_only(){
     cmd_entry[0]    = IODIR | INVAL_DDT;
 
     // Add device_id
-    cmd_entry[0]    |= IODIR_DV | (device_id << IODIR_DID_OFF);
+    // cmd_entry[0]    |= IODIR_DV | (device_id << IODIR_DID_OFF);
 
     cmd_entry[1]    = 0;
 
@@ -692,18 +736,18 @@ bool second_stage_only(){
     write64(write_paddr1, 0x00);
     write64(write_paddr2, 0x00);
 
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check first transfer
@@ -711,22 +755,24 @@ bool second_stage_only(){
     TEST_ASSERT("Second-stage only: First transfer matches (Normal translation)", check);
 
     /*------- SECOND TRANSFER -------*/
+    if (DC_EXT_FORMAT == 1)
+    {
+        write64(idma_src[0], (uint64_t)read_vaddr2);   // Source address
+        write64(idma_dest[0], (uint64_t)write_vaddr2); // Destination address
 
-    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+        // Check if iDMA was set up properly and init transfer
+        trans_id = read64(idma_nextid[0]);
+        if (!trans_id)
+            {ERROR("iDMA misconfigured")}
 
-    // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
-    if (!trans_id)
-        {ERROR("iDMA misconfigured")}
+        // Poll transfer status
+        while (read64(idma_done[0]) != trans_id)
+            ;
 
-    // Poll transfer status
-    while (read64(idma_done) != trans_id)
-        ;
-
-    //# Check second transfer
-    check = (read64(write_paddr2) == 0x22);
-    TEST_ASSERT("Second-stage only: Second transfer matches (MSI translation)", check);
+        //# Check second transfer
+        check = (read64(write_paddr2) == 0x22);
+        TEST_ASSERT("Second-stage only: Second transfer matches (MSI translation)", check);
+    }
 
     TEST_END();
 }
@@ -736,6 +782,7 @@ bool two_stage_translation(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
@@ -752,7 +799,7 @@ bool two_stage_translation(){
     cmd_entry[0]    = IODIR | INVAL_DDT;
 
     // Add device_id
-    cmd_entry[0]    |= IODIR_DV | (device_id << IODIR_DID_OFF);
+    // cmd_entry[0]    |= IODIR_DV | (device_id << IODIR_DID_OFF);
 
     cmd_entry[1]    = 0;
 
@@ -802,18 +849,18 @@ bool two_stage_translation(){
     write64(write_paddr3, 0x00);
     write64(write_paddr4, 0x00);
 
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check first transfer
@@ -822,16 +869,16 @@ bool two_stage_translation(){
 
     /*------- SECOND TRANSFER -------*/
 
-    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr2);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr2); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check second transfer
@@ -840,16 +887,16 @@ bool two_stage_translation(){
 
     /*------- THIRD TRANSFER -------*/
 
-    write64(idma_src, (uint64_t)read_vaddr3);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr3); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr3);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr3); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Check third transfer
@@ -858,21 +905,24 @@ bool two_stage_translation(){
 
     /*------- FOURTH TRANSFER -------*/
 
-    write64(idma_src, (uint64_t)read_vaddr4);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr4); // Destination address
+    if (DC_EXT_FORMAT == 1)
+    {
+        write64(idma_src[0], (uint64_t)read_vaddr4);   // Source address
+        write64(idma_dest[0], (uint64_t)write_vaddr4); // Destination address
 
-    // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
-    if (!trans_id)
-        {ERROR("iDMA misconfigured")}
+        // Check if iDMA was set up properly and init transfer
+        trans_id = read64(idma_nextid[0]);
+        if (!trans_id)
+            {ERROR("iDMA misconfigured")}
 
-    // Poll transfer status
-    while (read64(idma_done) != trans_id)
-        ;
+        // Poll transfer status
+        while (read64(idma_done[0]) != trans_id)
+            ;
 
-    //# Check fourth transfer
-    check = (read64(write_paddr4) == 0x44);
-    TEST_ASSERT("Two-stage translation: Third transfer matches (MSI translation)", check);
+        //# Check fourth transfer
+        check = (read64(write_paddr4) == 0x44);
+        TEST_ASSERT("Two-stage translation: Fourth transfer matches (MSI translation)", check);
+    }
 
     TEST_END();
 }
@@ -882,6 +932,7 @@ bool iotinval(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
@@ -907,31 +958,31 @@ bool iotinval(){
     write64(write_paddr2, 0x00);
 
     //### FIRST TRANSFER
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //### SECOND TRANSFER
-    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr2);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr2); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
@@ -983,28 +1034,28 @@ bool iotinval(){
     write32(cqt_addr, cqt);
 
     //### Perform previous transfers again
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
-    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr2);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr2); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -1050,28 +1101,28 @@ bool iotinval(){
     write32(cqt_addr, cqt);
 
     //### Perform previous transfers again
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
-    write64(idma_src, (uint64_t)read_vaddr2);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr2); // Destination address
+    write64(idma_src[0], (uint64_t)read_vaddr2);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr2); // Destination address
 
     // Check if iDMA was set up properly and init transfer
-    trans_id = read64(idma_nextid);
+    trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -1086,6 +1137,7 @@ bool wsi_generation(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
@@ -1108,26 +1160,26 @@ bool wsi_generation(){
 
     write64(write_paddr1, 0x00);
 
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     // Check if ipsr.fip was set in case of error
-    bool check = (read32(ipsr_addr) == 2);
+    bool check = ((read32(ipsr_addr) & FIP_MASK) == 2);
     TEST_ASSERT("ipsr.fip set on FQ recording", check);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x2UL);
+    write32(ipsr_addr, 0x7UL);
 
     fence_i();
 
@@ -1187,6 +1239,7 @@ bool iofence(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
 
     //# Construct command
@@ -1245,9 +1298,9 @@ bool iofence(){
     check = (iofence_data == 0x00ABCDEFUL);
     TEST_ASSERT("IOFENCE DATA was correctly written in the given ADDR", check);
 
-    // Clear cqcsr.fence_w_ip and ipsr.cip
+    // Clear cqcsr.fence_w_ip and ipsr
     write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x1UL);
+    write32(ipsr_addr, 0x7UL);
 
     TEST_END();
 }
@@ -1257,6 +1310,7 @@ bool msi_generation(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
@@ -1275,18 +1329,18 @@ bool msi_generation(){
     uintptr_t write_paddr1 = phys_page_base(MSI_GEN_W);
     uintptr_t write_vaddr1 = virt_page_base(MSI_GEN_W);
 
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     //# Induce a fault in the CQ
@@ -1333,7 +1387,7 @@ bool msi_generation(){
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
     write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x3UL);
+    write32(ipsr_addr, 0x7UL);
 
     // Clear mask of CQ interrupt vector
     msi_vec_ctl_cq  = 0x0UL;
@@ -1355,6 +1409,7 @@ bool hpm(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
@@ -1401,7 +1456,7 @@ bool hpm(){
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = (read32(ipsr_addr) == 4);
+    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Clear ipsr
@@ -1443,7 +1498,7 @@ bool hpm(){
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = (read32(ipsr_addr) == 4);
+    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Check data for HPM vector
@@ -1479,18 +1534,18 @@ bool hpm(){
     uintptr_t write_paddr1 = phys_page_base(HPM_W);
     uintptr_t write_vaddr1 = virt_page_base(HPM_W);
 
-    write64(idma_src, (uint64_t)read_vaddr1);   // Source address
-    write64(idma_dest, (uint64_t)write_vaddr1); // Destination address
-    write64(idma_nbytes, 8);                    // N of bytes to be transferred
-    write64(idma_config, 0);                    // iDMA config: Disable decouple, deburst and serialize
+    write64(idma_src[0], (uint64_t)read_vaddr1);   // Source address
+    write64(idma_dest[0], (uint64_t)write_vaddr1); // Destination address
+    write64(idma_nbytes[0], 8);                    // N of bytes to be transferred
+    write64(idma_config[0], 0);                    // iDMA config: Disable decouple, deburst and serialize
 
     // Check if iDMA was set up properly and init transfer
-    uint64_t trans_id = read64(idma_nextid);
+    uint64_t trans_id = read64(idma_nextid[0]);
     if (!trans_id)
         {ERROR("iDMA misconfigured")}
 
     // Poll transfer status
-    while (read64(idma_done) != trans_id)
+    while (read64(idma_done[0]) != trans_id)
         ;
 
     // Check iohpmevt.OF
@@ -1504,11 +1559,121 @@ bool hpm(){
     TEST_ASSERT("iocountovf.hpm[3] is set upon iohpmctr[3] overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = (read32(ipsr_addr) == 4);
+    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmctr[3] overflow", check);
 
     // Clear ipsr
     write32(ipsr_addr, 0x7UL);
+
+    TEST_END();
+}
+
+bool stress_latency(){
+
+    TEST_START();
+
+    int dev_table[16] = {
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        2
+    };
+
+    uint64_t cycles_start = 0;
+    uint64_t cycles_end = 0;
+    uint64_t cycles_avg = 0;
+    uint64_t cycles = 0;
+
+    fence_i();
+    set_iommu_1lvl();
+    set_iosatp_sv39();
+    set_iohgatp_sv39x4();
+
+    ddt_inval(false, 0);
+    iotinval_vma(false, false, false, 0, 0, 0);
+    iotinval_gvma(false, false, 0, 0);
+
+    write64(iohpmctr_addr[0], (uint64_t) 0);
+    write64(iohpmctr_addr[1], (uint64_t) 0);
+    write64(iohpmctr_addr[2], (uint64_t) 0);
+    write64(iohpmctr_addr[3], (uint64_t) 0);
+    write64(iohpmctr_addr[4], (uint64_t) 0);
+
+    for (size_t i = 0; i < N_TRANSFERS; i++)
+    {
+        cycles = CSRR(CSR_CYCLES);
+        srand(cycles);
+
+        size_t dev_index = rand() % 4;
+        size_t read_index = rand() % (STRESS_TOP_RD - STRESS_START_RD);
+        size_t write_index = rand() % (STRESS_TOP_WR - STRESS_START_WR);
+
+        //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
+        // uintptr_t read_paddr = phys_page_base(read_pages[read_index]);
+        // uintptr_t read_vaddr = virt_page_base(read_pages[read_index]);
+
+        // uintptr_t write_paddr = phys_page_base(write_pages[write_index]);
+        // uintptr_t write_vaddr = virt_page_base(write_pages[write_index]);
+
+        uintptr_t read_paddr = phys_page_base(read_index + STRESS_START_RD);
+        uintptr_t read_vaddr = virt_page_base(read_index + STRESS_START_RD);
+
+        uintptr_t write_paddr = phys_page_base(write_index + STRESS_START_WR);
+        uintptr_t write_vaddr = virt_page_base(write_index + STRESS_START_WR);
+
+        fence_i();
+
+        //# Write known values to memory
+        write64(read_paddr, 0xDEADBEEF);
+        write64(write_paddr, 0);
+
+        write64(idma_src[dev_index], (uint64_t)read_vaddr);   // Source address
+        write64(idma_dest[dev_index], (uint64_t)write_vaddr); // Destination address
+        write64(idma_nbytes[dev_index], 8);                    // N of bytes to be transferred
+        write64(idma_config[dev_index], 0);                    // iDMA config: Disable decouple, deburst and serialize
+
+        // Start stamp
+        cycles_start = CSRR(CSR_CYCLES);
+
+        // Check if iDMA was set up properly and init transfer
+        uint64_t trans_id = read64(idma_nextid[dev_index]);
+        if (!trans_id)
+            {ERROR("iDMA misconfigured")}
+
+        // Poll transfer status
+        while (read64(idma_done[dev_index]) != trans_id)
+            ;
+
+        // End stamp
+        cycles_end = CSRR(CSR_CYCLES);
+
+        fence_i();
+
+        if (read64(write_paddr) != 0xDEADBEEF)
+            {ERROR("Transfer does not match")}
+
+        cycles_avg += (cycles_end - cycles_start);
+    }
+
+    printf("Transfer average latency (in cycles): %llu\n", cycles_avg/N_TRANSFERS);
+
+    printf("Untranslated Requests cnt: %llu\n", read64(iohpmctr_addr[0]));
+    printf("IOTLB miss cnt: %llu\n",            read64(iohpmctr_addr[1]));
+    printf("DDT Walks cnt: %llu\n",             read64(iohpmctr_addr[2]));
+    printf("First-stage PT walk cnt: %llu\n",   read64(iohpmctr_addr[3]));
+    printf("Second-stage PT walk cnt: %llu\n",  read64(iohpmctr_addr[4]));
 
     TEST_END();
 }

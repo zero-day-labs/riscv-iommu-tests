@@ -6,10 +6,6 @@
 
 #include <device_contexts.h>
 
-#if (DEVICE_ID_WIDTH > (24))
-#   error "Error: device_id can not be wider than 24 bits"
-#endif
-
 uint64_t test_dc_tc_table[TEST_DC_MAX] = {
 
     [TC_RSVD_SET]   =   DC_TC_VALID | DC_TC_RSV,
@@ -22,7 +18,83 @@ uint64_t test_dc_tc_table[TEST_DC_MAX] = {
     [BASIC]         =   DC_TC_VALID,
     [DISABLE_TF]    =   DC_TC_VALID | DC_TC_DTF,
     [DC_TOP]        =   DC_TC_VALID
-};     
+};
+
+// uint64_t GSCID_ARRAY[16] = {
+//     0x0ABCULL,  // 0
+//     0x0ABDULL,  // 1
+//     0x0ABEULL,  // 2
+//     0x0ABFULL,  // 3
+//     0x0ABCULL,  // 4
+//     0x0ABDULL,  // 5
+//     0x0ABEULL,  // 6
+//     0x0ABFULL,  // 7
+//     0x0ABCULL,  // 8
+//     0x0ABDULL,  // 9
+//     0x0ABEULL,  // 10
+//     0x0ABFULL,  // 11
+//     0x0ABCULL,  // 12
+//     0x0ABDULL,  // 13
+//     0x0ABEULL,  // 14
+//     0x0ABFULL   // 15
+// };
+
+// uint64_t PSCID_ARRAY[16] = {
+//     0x0DECULL,  // 0
+//     0x0DEDULL,  // 1
+//     0x0DEEULL,  // 2
+//     0x0DEFULL,  // 3
+//     0x0DECULL,  // 4
+//     0x0DEDULL,  // 5
+//     0x0DEEULL,  // 6
+//     0x0DEFULL,  // 7
+//     0x0DECULL,  // 8
+//     0x0DEDULL,  // 9
+//     0x0DEEULL,  // 10
+//     0x0DEFULL,  // 11
+//     0x0DECULL,  // 12
+//     0x0DEDULL,  // 13
+//     0x0DEEULL,  // 14
+//     0x0DEFULL   // 15
+// };
+
+uint64_t GSCID_ARRAY[16] = {
+    0x0ABCULL,  // 0
+    0x0ABCULL,  // 1
+    0x0ABCULL,  // 2
+    0x0ABCULL,  // 3
+    0x0ABCULL,  // 4
+    0x0ABCULL,  // 5
+    0x0ABCULL,  // 6
+    0x0ABCULL,  // 7
+    0x0ABCULL,  // 8
+    0x0ABCULL,  // 9
+    0x0ABCULL,  // 10
+    0x0ABCULL,  // 11
+    0x0ABCULL,  // 12
+    0x0ABCULL,  // 13
+    0x0ABCULL,  // 14
+    0x0ABCULL   // 15
+};
+
+uint64_t PSCID_ARRAY[16] = {
+    0x0DEFULL,  // 0
+    0x0DEFULL,  // 1
+    0x0DEFULL,  // 2
+    0x0DEFULL,  // 3
+    0x0DEFULL,  // 4
+    0x0DEFULL,  // 5
+    0x0DEFULL,  // 6
+    0x0DEFULL,  // 7
+    0x0DEFULL,  // 8
+    0x0DEFULL,  // 9
+    0x0DEFULL,  // 10
+    0x0DEFULL,  // 11
+    0x0DEFULL,  // 12
+    0x0DEFULL,  // 13
+    0x0DEFULL,  // 14
+    0x0DEFULL   // 15
+};
 
 // First and second-stage page tables (Already configured)
 extern pte_t s1pt[][512];
@@ -31,14 +103,14 @@ extern pte_t s2pt_root[];
 // MSI page tables (Configured in msi_pts.c)
 extern uint64_t msi_pt[];
 
-// 64 entries of 8 DWs each
-uint64_t root_ddt[DDT_N_ENTRIES * 8] __attribute__((aligned(PAGE_SIZE)));
+// DDT
+uint64_t root_ddt[DDT_N_ENTRIES * DC_SIZE] __attribute__((aligned(PAGE_SIZE)));
 // uint64_t ddt[3][DDT_N_ENTRIES * 8] __attribute__((aligned(PAGE_SIZE)));
 
 void ddt_init()
 {
     // Init all entries to zero
-    for (int i = 0; i < (DDT_N_ENTRIES * 8); i++)
+    for (int i = 0; i < (DDT_N_ENTRIES * DC_SIZE); i++)
     {
         root_ddt[i] = 0;
         // ddt[0][i] = 0;
@@ -64,18 +136,22 @@ void ddt_init()
     //     ddt[2][i+7] = 0;                                                // DC.reserved
     // }
 
-    // Configure 4 DCs in the root DDT (1LVL mode)
-    for (int i = 72; i < 88; i=i+8)
+    // Configure DCs in the root DDT (1LVL mode)
+    for (int i = (DID_MIN * DC_SIZE); i < ((DID_MAX + 1) * DC_SIZE); i = i + DC_SIZE)
     {
         root_ddt[i+0] = test_dc_tc_table[BASIC];                                // DC.tc
-        root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE); // DC.iohgatp
-        root_ddt[i+1] |= (0x0ABCULL << GSCID_OFF);
-        root_ddt[i+2] = (0x0DEFULL << PSCID_OFF);                               // DC.ta
+        root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);   // DC.iohgatp
+        root_ddt[i+1] |= (GSCID_ARRAY[i/DC_SIZE] << GSCID_OFF);
+        root_ddt[i+2] = (PSCID_ARRAY[i/DC_SIZE] << PSCID_OFF);                  // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);         // DC.fsc
-        root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);       // DC.msiptp
-        root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
-        root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
-        root_ddt[i+7] = 0;                                                      // DC.reserved
+
+        if (DC_EXT_FORMAT == 1)
+        {
+            root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);        // DC.msiptp
+            root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
+            root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
+            root_ddt[i+7] = 0;                                                      // DC.reserved
+        }
     }
 }
 
@@ -108,56 +184,62 @@ void set_iommu_1lvl()
 
 void set_iosatp_bare()
 {
-    for (int i = 72; i < 88; i=i+8)
+    for (int i = (DID_MIN * DC_SIZE); i < ((DID_MAX + 1) * DC_SIZE); i = i + DC_SIZE)
     {
-        root_ddt[i+2] = (0x0DEFULL << PSCID_OFF);                         // DC.ta
+        root_ddt[i+2] = (PSCID_ARRAY[i/DC_SIZE] << PSCID_OFF);            // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);   // DC.fsc
     }
 }
 
 void set_iosatp_sv39()
 {
-    for (int i = 72; i < 88; i=i+8)
+    for (int i = (DID_MIN * DC_SIZE); i < ((DID_MAX + 1) * DC_SIZE); i = i + DC_SIZE)
     {
-        root_ddt[i+2] = (0x0DEFULL << PSCID_OFF);                         // DC.ta
+        root_ddt[i+2] = (PSCID_ARRAY[i/DC_SIZE] << PSCID_OFF);            // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_SV39);   // DC.fsc
     }
 }
 
 void set_iohgatp_bare()
 {
-    for (int i = 72; i < 88; i=i+8)
+    for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);  // DC.iohgatp
-        root_ddt[i+1] |= (0x0ABCULL << GSCID_OFF);
+        root_ddt[i+1] |= (GSCID_ARRAY[i/8] << GSCID_OFF);
     }
 }
 
 void set_iohgatp_sv39x4()
 {
-    for (int i = 72; i < 88; i=i+8)
+    for (int i = (DID_MIN * DC_SIZE); i < ((DID_MAX + 1) * DC_SIZE); i = i + DC_SIZE)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);  // DC.iohgatp
-        root_ddt[i+1] |= (0x0ABCULL << GSCID_OFF);
+        root_ddt[i+1] |= (GSCID_ARRAY[i/8] << GSCID_OFF);
     }
 }
 
 void set_msi_off()
 {
-    for (int i = 72; i < 88; i=i+8)
+    if (DC_EXT_FORMAT == 1)
     {
-        root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);        // DC.msiptp
-        root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
-        root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
+        for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
+        {
+            root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);        // DC.msiptp
+            root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
+            root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
+        }
     }
 }
 
 void set_msi_flat()
 {
-    for (int i = 72; i < 88; i=i+8)
+    if (DC_EXT_FORMAT == 1)
     {
-        root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);       // DC.msiptp
-        root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
-        root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
+        for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
+        {
+            root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);       // DC.msiptp
+            root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
+            root_ddt[i+6] = MSI_ADDR_PATTERN;                                       // DC.msi_addr_pattern
+        }
     }
 }

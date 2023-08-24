@@ -8,6 +8,7 @@
         "time.h": "c",
         "rvh_test.h": "c",
         "csrs.h": "c",
-        "instructions.h": "c"
+        "instructions.h": "c",
+        "algorithm": "c"
     }
 }
