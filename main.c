@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <rvh_test.h>
 #include <iommu_tests.h>
+#include <rv_iommu.h>
 
 /**
  *   Check bit 7 of misa CSR

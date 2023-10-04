@@ -2,12 +2,10 @@
 #define DEVICE_CONTEXTS_H
 
 #include <iommu_tests.h>
-
-// DC format
-#define DC_EXT_FORMAT       (0)
+#include <rv_iommu.h>
 
 // Number of entries of the root DDT (4-kiB / 64 bytes p/ entry)
-#if (DC_EXT_FORMAT == 1)
+#if (MSI_TRANSLATION == 1)
 # define DDT_N_ENTRIES      (0x1000 / 64)   // 64 entries
 # define DC_SIZE            (8)
 #else
@@ -16,14 +14,8 @@
 #endif
 
 // Min and max device ID of DMA devices in the platform. Used to fill DDT
-#define DID_MIN             (1)
-#define DID_MAX             (14)
-
-// HW device_id of the DMA device. Defined for invalidation
-#define DEVICE_ID           (0xAULL)
-
-// Mask for ddtp.PPN (ddtp[53:10])
-#define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+#define DID_MIN             (8)
+#define DID_MAX             (12)
 
 // iosatp encoding to configure DC.fsc
 #define IOSATP_MODE_BARE    (0x0ULL << 60)
@@ -41,13 +33,6 @@
 #define MSI_ADDR_PATTERN    (0x000385ULL)   // 0000_0000_0000_0011_1000_0101
 // MSI GPA                  0x100103ULL        0001_0000_0000_0001_0000_0011 (IFN 10001)
 // MSI GPA                  0x100183ULL        0001_0000_0000_0001_1000_0011 (IFN 10101)
-
-// Define DDT mode
-#define DDTP_MODE_OFF   (0ULL)
-#define DDTP_MODE_BARE  (1ULL)
-#define DDTP_MODE_1LVL  (2ULL)
-#define DDTP_MODE_2LVL  (3ULL)
-#define DDTP_MODE_3LVL  (4ULL)
 
 // DC.tc flags
 #define DC_TC_VALID     (1ULL << 0 )    // Valid
@@ -83,9 +68,6 @@ enum test_dc {
 };
 
 void ddt_init(void);
-void set_iommu_off(void);
-void set_iommu_bare(void);
-void set_iommu_1lvl(void);
 void set_iosatp_sv39(void);
 void set_iohgatp_sv39x4(void);
 void set_iosatp_bare(void);

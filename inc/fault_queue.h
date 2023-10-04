@@ -2,6 +2,7 @@
 #define FAULT_QUEUE_H
 
 #include <iommu_tests.h>
+#include <rv_iommu.h>
 
 // Number of entries in the FQ. Must be POT
 #define FQ_N_ENTRIES    (64)
@@ -10,9 +11,13 @@
 
 // Mask for cqb.PPN (fqb[53:10])
 #define FQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+// Mask for CQ PPN (cqb[55:12])
+#define FQ_PPN_MASK     (0xFFFFFFFFFFF000ULL)
 
 #define CAUSE_MASK      (0xFFFULL)
 #define TTYP_MASK       (0xFC00000000ULL)
+#define DID_MASK        (0xFFFFFF0000000000ULL)
+#define DID_OFF         (40)
 // Offset for fqb.PPN
 #define FQB_PPN_OFF     (10)
 
@@ -58,5 +63,6 @@
 #define PT_DATA_CORRUPTION                  (274)
 
 void fq_init(void);
+int fq_read_record(uint64_t *buf);
 
 #endif  /* FAULT_QUEUE_H */

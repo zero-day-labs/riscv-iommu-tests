@@ -6,10 +6,10 @@
 
 #include <command_queue.h>
 
-extern uintptr_t cqcsr_addr;
-extern uintptr_t cqb_addr;
-extern uintptr_t cqh_addr;
-extern uintptr_t cqt_addr;
+uintptr_t cqcsr_addr = IOMMU_REG_ADDR(IOMMU_CQCSR_OFFSET);
+uintptr_t cqb_addr = IOMMU_REG_ADDR(IOMMU_CQB_OFFSET);
+uintptr_t cqh_addr = IOMMU_REG_ADDR(IOMMU_CQH_OFFSET);
+uintptr_t cqt_addr = IOMMU_REG_ADDR(IOMMU_CQT_OFFSET);
 
 // N_entries * 16 bytes
 uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
@@ -36,8 +36,6 @@ void cq_init()
 
 void ddt_inval(bool dv, uint64_t device_id)
 {
-    fence_i();
-    
     // Construct command
     uint64_t cmd_entry[2];
 
@@ -54,8 +52,7 @@ void ddt_inval(bool dv, uint64_t device_id)
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uint64_t cqb = read64(cqb_addr);
-    uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
+    uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
 
     // Write command to memory
     write64(cq_entry_base, cmd_entry[0]);
@@ -68,9 +65,6 @@ void ddt_inval(bool dv, uint64_t device_id)
 
 void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid)
 {
-
-    fence_i();
-
     // Construct command
     uint64_t cmd_entry[2];
 
@@ -95,8 +89,7 @@ void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, ui
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uint64_t cqb = read64(cqb_addr);
-    uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
+    uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
 
     // Write command to memory
     write64(cq_entry_base, cmd_entry[0]);
@@ -109,9 +102,6 @@ void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, ui
 
 void iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid)
 {
-
-    fence_i();
-    
     // Construct command
     uint64_t cmd_entry[2];
 
@@ -132,8 +122,41 @@ void iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid)
     uint64_t cqt = read32(cqt_addr);
 
     // Get address of the next entry to write in the CQ
-    uint64_t cqb = read64(cqb_addr);
-    uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
+    uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
+
+    // Write command to memory
+    write64(cq_entry_base, cmd_entry[0]);
+    write64(cq_entry_base + 8, cmd_entry[1]);
+
+    // Increment tail reg
+    cqt++;
+    write32(cqt_addr, cqt);
+}
+
+void iofence_c(bool wsi, bool av, uint64_t addr, uint64_t data)
+{
+    uint64_t cmd_entry[2];
+
+    INFO("Writing IOFENCE to CQ")
+    cmd_entry[0]    = IOFENCE | FUNC3_C;
+
+    // Add WSI
+    if (wsi)
+        cmd_entry[0]    |= IOFENCE_WSI;
+
+    // Add AV
+    if (av)
+    {
+        cmd_entry[0]    |= IOFENCE_AV;
+        cmd_entry[0]    |= (data << 32);
+        cmd_entry[1]    = (addr >> 2);
+    }
+
+    // Read cqt
+    uint64_t cqt = read32(cqt_addr);
+
+    // Get address of the next entry to write in the CQ
+    uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
 
     // Write command to memory
     write64(cq_entry_base, cmd_entry[0]);

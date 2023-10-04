@@ -2,6 +2,7 @@
 #define COMMAND_QUEUE_H
 
 #include <iommu_tests.h>
+#include <rv_iommu.h>
 
 // Number of entries in the CQ. Must be POT
 #define CQ_N_ENTRIES    (64 )
@@ -10,6 +11,8 @@
 
 // Mask for cqb.PPN (cqb[53:10])
 #define CQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+// Mask for CQ PPN (cqb[55:12])
+#define CQ_PPN_MASK        (0xFFFFFFFFFFF000ULL)
 // Mask for ADDR[63:12]
 #define ADDR_63_12_MASK (0xFFFFFFFFFFFFF000ULL)
 // Offset for cqb.PPN
@@ -23,7 +26,7 @@
 // func3
 #define VMA         (0ULL << 7)
 #define GVMA        (1ULL << 7)
-#define FUNC3_C   (0ULL << 7)
+#define FUNC3_C     (0ULL << 7)
 #define INVAL_DDT   (0ULL << 7)
 #define INVAL_PDT   (1ULL << 7)
 
@@ -64,5 +67,6 @@ void cq_init(void);
 void ddt_inval(bool dv, uint64_t device_id);
 void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid);
 void iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
+void iofence_c(bool wsi, bool av, uint64_t addr, uint64_t data);
 
 #endif  /* COMMAND_QUEUE_H*/

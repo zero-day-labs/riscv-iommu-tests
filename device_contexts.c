@@ -20,6 +20,9 @@ uint64_t test_dc_tc_table[TEST_DC_MAX] = {
     [DC_TOP]        =   DC_TC_VALID
 };
 
+/**
+ *  Used to simulate multiple VMs and process address spaces 
+ */
 // uint64_t GSCID_ARRAY[16] = {
 //     0x0ABCULL,  // 0
 //     0x0ABDULL,  // 1
@@ -145,7 +148,7 @@ void ddt_init()
         root_ddt[i+2] = (PSCID_ARRAY[i/DC_SIZE] << PSCID_OFF);                  // DC.ta
         root_ddt[i+3] = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);         // DC.fsc
 
-        if (DC_EXT_FORMAT == 1)
+        if (MSI_TRANSLATION == 1)
         {
             root_ddt[i+4] = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);        // DC.msiptp
             root_ddt[i+5] = MSI_ADDR_MASK;                                          // DC.msi_addr_mask
@@ -153,33 +156,6 @@ void ddt_init()
             root_ddt[i+7] = 0;                                                      // DC.reserved
         }
     }
-}
-
-void set_iommu_off()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uint64_t ddtp_addr = IOMMU_REG_ADDR(IOMMU_DDTP_OFFSET);
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_OFF);
-
-    write64(ddtp_addr, ddtp);
-}
-
-void set_iommu_bare()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uint64_t ddtp_addr = IOMMU_REG_ADDR(IOMMU_DDTP_OFFSET);
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_BARE);
-
-    write64(ddtp_addr, ddtp);
-}
-
-void set_iommu_1lvl()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uint64_t ddtp_addr = IOMMU_REG_ADDR(IOMMU_DDTP_OFFSET);
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_1LVL);
-    
-    write64(ddtp_addr, ddtp);
 }
 
 void set_iosatp_bare()
@@ -205,7 +181,7 @@ void set_iohgatp_bare()
     for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);  // DC.iohgatp
-        root_ddt[i+1] |= (GSCID_ARRAY[i/8] << GSCID_OFF);
+        root_ddt[i+1] |= (GSCID_ARRAY[i/DC_SIZE] << GSCID_OFF);
     }
 }
 
@@ -214,13 +190,13 @@ void set_iohgatp_sv39x4()
     for (int i = (DID_MIN * DC_SIZE); i < ((DID_MAX + 1) * DC_SIZE); i = i + DC_SIZE)
     {
         root_ddt[i+1] = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);  // DC.iohgatp
-        root_ddt[i+1] |= (GSCID_ARRAY[i/8] << GSCID_OFF);
+        root_ddt[i+1] |= (GSCID_ARRAY[i/DC_SIZE] << GSCID_OFF);
     }
 }
 
 void set_msi_off()
 {
-    if (DC_EXT_FORMAT == 1)
+    if (MSI_TRANSLATION == 1)
     {
         for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
         {
@@ -233,7 +209,7 @@ void set_msi_off()
 
 void set_msi_flat()
 {
-    if (DC_EXT_FORMAT == 1)
+    if (MSI_TRANSLATION == 1)
     {
         for (int i = (DID_MIN*DC_SIZE); i < ((DID_MAX+1)*DC_SIZE); i=i+DC_SIZE)
         {

@@ -23,17 +23,17 @@
  * 
  */
 
-TEST_REGISTER(stress_latency);
-// TEST_REGISTER(hpm);
-// TEST_REGISTER(msi_generation);
-// TEST_REGISTER(iofence);
-// TEST_REGISTER(wsi_generation);
-// TEST_REGISTER(iotinval);
-// TEST_REGISTER(two_stage_translation);
-// TEST_REGISTER(second_stage_only);
-// TEST_REGISTER(both_stages_bare);
-// TEST_REGISTER(iommu_bare);
-// TEST_REGISTER(iommu_off);
+// TEST_REGISTER(stress_latency);
+TEST_REGISTER(hpm);
+TEST_REGISTER(msi_generation);
+TEST_REGISTER(iofence);
+TEST_REGISTER(wsi_generation);
+TEST_REGISTER(iotinval);
+TEST_REGISTER(two_stage_translation);
+TEST_REGISTER(second_stage_only);
+TEST_REGISTER(both_stages_bare);
+TEST_REGISTER(iommu_bare);
+TEST_REGISTER(iommu_off);
 
 
 // TEST_REGISTER(idma_only_multiple_beats);
