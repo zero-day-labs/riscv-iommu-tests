@@ -1,6 +1,6 @@
 build*
 deploy*
-.vscode*
-.Xil*
+*vscode*
+*Xil*
 *.jou
 *.log
