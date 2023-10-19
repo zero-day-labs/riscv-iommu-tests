@@ -13,12 +13,6 @@
 #define DDTP_MODE_2LVL  (3ULL)
 #define DDTP_MODE_3LVL  (4ULL)
 
-// MSI translation support
-#define MSI_TRANSLATION (1)
-
-// Base address of the IOMMU Programming Interface
-#define IOMMU_BASE_ADDR             0x50010000ULL
-
 // IOMMU Register Offsets
 #define IOMMU_CAPABILITIES_OFFSET   0x0
 #define IOMMU_FCTL_OFFSET           0x8

@@ -13,10 +13,6 @@
 # define DC_SIZE            (4)
 #endif
 
-// Min and max device ID of DMA devices in the platform. Used to fill DDT
-#define DID_MIN             (8)
-#define DID_MAX             (12)
-
 // iosatp encoding to configure DC.fsc
 #define IOSATP_MODE_BARE    (0x0ULL << 60)
 #define IOSATP_MODE_SV39    (0x8ULL << 60)

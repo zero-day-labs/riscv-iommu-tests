@@ -698,7 +698,6 @@ bool wsi_generation(){
 
     TEST_ASSERT("Read 1: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("Read 1: Recorded IOVA matches with input IOVA", check_iova);
-    printf("R1 Device ID = %d\n", (fq_entry[0] & DID_MASK) >> DID_OFF);
 
     // Second entry
     if (fq_read_record(fq_entry) != 0)
@@ -709,7 +708,6 @@ bool wsi_generation(){
 
     TEST_ASSERT("Write 1: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("Write 1: Recorded IOVA matches with input IOVA", check_iova);
-    printf("W1 Device ID = %d\n", (fq_entry[0] & DID_MASK) >> DID_OFF);
 
     TEST_END();
 }
@@ -848,6 +846,12 @@ bool msi_generation(){
     TEST_END();
 }
 
+/**
+ *  Enable free clock cycles counter and verify overflow bit.
+ *  Verify interrupt (MSI/WSI).
+ *  Enable event counter programmed for IOTLB misses.
+ *  Verify overflow and interrupt
+ */
 bool hpm(){
 
     // Print the name of the test and create test_status variable
@@ -999,7 +1003,10 @@ bool hpm(){
     TEST_END();
 }
 
-bool stress_latency(){
+/**
+ *  Test to calculate latency using different number of PTs and devices
+ */
+bool latency_test(){
 
     TEST_START();
 
@@ -1052,12 +1059,6 @@ bool stress_latency(){
         size_t write_index = rand() % (STRESS_TOP_WR - STRESS_START_WR);
 
         //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
-        // uintptr_t read_paddr = phys_page_base(read_pages[read_index]);
-        // uintptr_t read_vaddr = virt_page_base(read_pages[read_index]);
-
-        // uintptr_t write_paddr = phys_page_base(write_pages[write_index]);
-        // uintptr_t write_vaddr = virt_page_base(write_pages[write_index]);
-
         uintptr_t read_paddr = phys_page_base(read_index + STRESS_START_RD);
         uintptr_t read_vaddr = virt_page_base(read_index + STRESS_START_RD);
 

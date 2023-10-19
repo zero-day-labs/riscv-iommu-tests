@@ -6,9 +6,6 @@
 // Number of DMA devices in the platform
 #define N_DMA           (4)
 
-// iDMA modules generate an interrupt after completing a transfer
-#define IDMA_IRQ_EN     (0)
-
 #define IDMA_DECOUPLE   (1ULL << 0)
 #define IDMA_DEBURST    (1ULL << 1)
 #define IDMA_SERIALIZE  (1ULL << 2)
