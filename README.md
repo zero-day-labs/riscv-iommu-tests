@@ -1,9 +1,22 @@
 # RISCV IOMMU Architectural Tests
 
-## About 
-This repository hosts a framework of architectural tests for the RISC-V IOMMU. It was developed as an adaptation of the [RISC-V Hypervisor extension tests](https://github.com/ninolomata/riscv-hyp-tests) framework to test a [RISC-V IOMMU IP](https://github.com/zero-day-labs/riscv-iommu) within a [CVA6-based SoC](https://github.com/zero-day-labs/cva6/tree/feat/iommu). To perform DMA transfers, we used the [PULP iDMA](https://github.com/pulp-platform/iDMA) module.
+## Table of Contents
 
-The Table below lists all tests. Each one addresses one or more architectural features conforming to the [RISC-V IOMMU Specification](https://github.com/riscv-non-isa/riscv-iommu). All tests can be individually enabled or disabled by modifying the corresponding line in [test_register.c](test_register.c).
+- [License](#license)
+- [About this Project](#about-this-project)
+- [Configuring the Tests](#configuring-the-tests)
+- [Building the application](#building-the-application)
+
+***
+
+## License
+
+This work is licensed under the Apache-2.0 License. See the [LICENSE](./LICENSE) file for details.
+
+## About this Project 
+This repository hosts a framework of architectural tests for the RISC-V IOMMU. It was developed as an adaptation of the [RISC-V Hypervisor extension tests](https://github.com/ninolomata/riscv-hyp-tests) framework to test a [RISC-V IOMMU IP](https://github.com/zero-day-labs/riscv-iommu) within a [CVA6-based SoC](https://github.com/zero-day-labs/cva6/tree/feat/iommu). To perform DMA transfers, we use the [PULP iDMA](https://github.com/pulp-platform/iDMA) module.
+
+The Table below lists the included tests. Each one addresses one or more architectural features conforming to the [RISC-V IOMMU Specification](https://github.com/riscv-non-isa/riscv-iommu). All tests can be individually enabled or disabled before compilation.
 
 | Test | Description |
 |-|-|
@@ -24,22 +37,27 @@ The Table below lists all tests. Each one addresses one or more architectural fe
 | **idma_only**| Test SoC with iDMA module directly connected to the XBAR, i.e., without IOMMU.|
 | **idma_only_multiple_beats**|Test multi-beat transfers in the SoC with iDMA module directly connected to the XBAR.|
 
+## Configuring the Tests
+Before building the application, you must configure some parameters according to the properties of your platform.
 
-## Building
-The **riscv64-unknown-elf-** toolchain must be on the PATH to build the application.
+- In the [iommu_tests.h](./inc/iommu_tests.h) file, you can configure some IOMMU-related information. For example, **DID_MIN** and **DID_MAX** define the range of DDT entries that will be created to execute the tests. You must configure these values according to the device IDs of the DMAs present in your platform.
+
+- You can disable/enable individual tests by commenting/uncommenting the corresponding line in the [test_register.c](./test_register.c) file.
+
+- The base address of the programming interfaces of the IOMMU IP and the iDMA devices must be specified in **platform/`${PLAT}`/inc/iommu.h**
+
+## Building the application
+:information_source: The **riscv64-unknown-elf-** toolchain must be in your `${PATH}` to build the application.
 
 ### Target platform
 
-The target platform on which the test will run should be specified by setting the PLAT environment variable. The currently supported platforms are shown in the table below:
+The target platform on which the test will run must be specified by setting the `${PLAT}` environment variable. Currently, we only support the [CVA6-based platform](https://github.com/zero-day-labs/cva6/tree/feat/iommu).
 
 | Platform | ${PLAT} |
 | - | - |
-| *QEMU* | `qemu` |
-| *Rocket Chip Emulator* | `rocket_emul` |
-| *Rocket Chip FPGA* | `rocket_fpga` |
 | *CVA6* | `cva6` |
 
-:warning: **Note:**: The base address of the programming interfaces of the IOMMU IP and the iDMA module must be specified in **platform/`${target_platform}`/inc/iommu.h**
+:information_source: Originally, the hypervisor extension test framework supported multiple platforms (QEMU, Rocket, CVA6). However, to the best of our knowledge, only the CVA6-based platform has support for the RISC-V IOMMU. We keep the platform definition mechanism to enable the integration of support for other platforms through further contributions.
 
 ### Output level
 
@@ -58,4 +76,4 @@ $ cd riscv-iommu-tests
 $ make PLAT=${target_platform}
 ```
 
-The compilation result is located at **build/`${target_platform}`/rv_iommu_test.elf** or **rv_iommu_test.bin**.
+The output files are located in the **build/`${PLAT}`** folder (**rv_iommu_test.elf** and **rv_iommu_test.bin**).

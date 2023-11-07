@@ -23,10 +23,10 @@
 // If set, DCs are configured in extended format
 #define MSI_TRANSLATION (1)
 
-// Min and max device ID of DMA devices in the platform.
+// Min and max device IDs of DMA devices in the platform.
 // DDT entries are created for device IDs in [DID_MIN, DID_MAX]
 #define DID_MIN             (1)
-#define DID_MAX             (12)
+#define DID_MAX             (15)
 
 // Interrupt vectors
 #define CQ_INT_VECTOR       (0x03ULL)

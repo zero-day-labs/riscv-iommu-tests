@@ -3,7 +3,7 @@
 
 #include <iommu_tests.h>
 
-// Number of entries of the MSI Page Table (POT, associated with N of set bits in the MSI mask)
+// Number of entries of the MSI Page Table (PoT, associated with N of set bits in the MSI mask)
 #define MSI_N_ENTRIES       (32)
 
 // SPA of the base Interrupt File, i.e., physical address of the page (IF) pointed to by the first entry of the MSI PT.
