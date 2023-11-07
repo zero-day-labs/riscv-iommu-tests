@@ -1010,25 +1010,6 @@ bool latency_test(){
 
     TEST_START();
 
-    int dev_table[16] = {
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-        2
-    };
-
     uint64_t cycles_start = 0;
     uint64_t cycles_end = 0;
     uint64_t cycles_avg = 0;
@@ -1055,8 +1036,8 @@ bool latency_test(){
         srand(cycles);
 
         size_t dev_index = rand() % 4;
-        size_t read_index = rand() % (STRESS_TOP_RD - STRESS_START_RD);
-        size_t write_index = rand() % (STRESS_TOP_WR - STRESS_START_WR);
+        size_t read_index = rand() % N_RD_MAPPINGS;
+        size_t write_index = rand() % N_WR_MAPPINGS;
 
         //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
         uintptr_t read_paddr = phys_page_base(read_index + STRESS_START_RD);
@@ -1071,10 +1052,10 @@ bool latency_test(){
         write64(read_paddr, 0xDEADBEEF);
         write64(write_paddr, 0);
 
-        write64(idma_src[dev_index], (uint64_t)read_vaddr);   // Source address
-        write64(idma_dest[dev_index], (uint64_t)write_vaddr); // Destination address
-        write64(idma_nbytes[dev_index], 8);                    // N of bytes to be transferred
-        write64(idma_config[dev_index], 0);                    // iDMA config: Disable decouple, deburst and serialize
+        write64(idma_src[dev_index], (uint64_t)read_vaddr);     // Source address
+        write64(idma_dest[dev_index], (uint64_t)write_vaddr);   // Destination address
+        write64(idma_nbytes[dev_index], 8);                     // N of bytes to be transferred
+        write64(idma_config[dev_index], 0);                     // iDMA config: Disable decouple, deburst and serialize
 
         // Start stamp
         cycles_start = CSRR(CSR_CYCLES);
