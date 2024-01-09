@@ -360,9 +360,6 @@ bool both_stages_bare(){
 
     /*------- SECOND TRANSFER -------*/
 
-    write64(idma_src[0], (uint64_t)read_paddr2);   // Source address
-    write64(idma_dest[0], (uint64_t)write_paddr2); // Destination address
-
     //# Config iDMA and init transfer
     idma_setup_addr(0, read_paddr2, write_paddr2);
     if (idma_exec_transfer(0) != 0)
@@ -1010,10 +1007,10 @@ bool latency_test(){
 
     TEST_START();
 
-    uint64_t cycles_start = 0;
-    uint64_t cycles_end = 0;
-    uint64_t cycles_avg = 0;
-    uint64_t cycles = 0;
+    uint64_t stamp_start = 0;
+    uint64_t stamp_end = 0;
+    uint64_t avg_lat = 0;
+    uint64_t stamp = 0;
 
     fence_i();
     set_iommu_1lvl();
@@ -1030,21 +1027,21 @@ bool latency_test(){
     write64(iohpmctr_addr[3], (uint64_t) 0);
     write64(iohpmctr_addr[4], (uint64_t) 0);
 
+    stamp = CSRR(CSR_CYCLES);
+    srand(stamp);
+
     for (size_t i = 0; i < N_TRANSFERS; i++)
     {
-        cycles = CSRR(CSR_CYCLES);
-        srand(cycles);
-
-        size_t dev_index = rand() % 4;
-        size_t read_index = rand() % N_RD_MAPPINGS;
-        size_t write_index = rand() % N_WR_MAPPINGS;
+        // Get random indexes
+        size_t dev_index = rand() % N_DMA;
+        size_t pt_index = rand() % N_MAPPINGS;
 
         //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
-        uintptr_t read_paddr = phys_page_base(read_index + STRESS_START_RD);
-        uintptr_t read_vaddr = virt_page_base(read_index + STRESS_START_RD);
+        uintptr_t read_paddr = phys_page_base(pt_index + STRESS_START);
+        uintptr_t read_vaddr = virt_page_base(pt_index + STRESS_START);
 
-        uintptr_t write_paddr = phys_page_base(write_index + STRESS_START_WR);
-        uintptr_t write_vaddr = virt_page_base(write_index + STRESS_START_WR);
+        uintptr_t write_paddr = phys_page_base(pt_index + STRESS_START) + 0x0800;
+        uintptr_t write_vaddr = virt_page_base(pt_index + STRESS_START) + 0x0800;
 
         fence_i();
 
@@ -1058,7 +1055,7 @@ bool latency_test(){
         write64(idma_config[dev_index], 0);                     // iDMA config: Disable decouple, deburst and serialize
 
         // Start stamp
-        cycles_start = CSRR(CSR_CYCLES);
+        stamp_start = CSRR(CSR_CYCLES);
 
         // Check if iDMA was set up properly and init transfer
         uint64_t trans_id = read64(idma_nextid[dev_index]);
@@ -1070,17 +1067,17 @@ bool latency_test(){
             ;
 
         // End stamp
-        cycles_end = CSRR(CSR_CYCLES);
+        stamp_end = CSRR(CSR_CYCLES);
 
         fence_i();
 
         if (read64(write_paddr) != 0xDEADBEEF)
             {ERROR("Transfer does not match")}
 
-        cycles_avg += (cycles_end - cycles_start);
+        avg_lat += (stamp_end - stamp_start);
     }
 
-    printf("Transfer average latency (in cycles): %llu\n", cycles_avg/N_TRANSFERS);
+    printf("Transfer average latency (in cycles): %llu\n", avg_lat/N_TRANSFERS);
 
     printf("Untranslated Requests cnt: %llu\n", read64(iohpmctr_addr[0]));
     printf("IOTLB miss cnt: %llu\n",            read64(iohpmctr_addr[1]));

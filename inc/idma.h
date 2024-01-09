@@ -4,7 +4,7 @@
 #include <iommu_tests.h>
 
 // Number of DMA devices in the platform
-#define N_DMA           (4)
+#define N_DMA           (8)
 
 #define IDMA_DECOUPLE   (1ULL << 0)
 #define IDMA_DEBURST    (1ULL << 1)

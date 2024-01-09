@@ -102,7 +102,7 @@ void s1pt_init(){
 
     //# Fill s1pt[3][i] with 4-kiB PTEs
     for(int i = 0; i < TEST_PAGE_MAX; i++){
-        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        if (i >= STRESS_START && i < STRESS_TOP)
         {
             s1pt[3][i] = (addr >> 2) | PTE_AD |
             PTE_V | PTE_U | PTE_RWX;
@@ -123,7 +123,7 @@ void s1pt_init(){
 
     //# Fill s1pt[4][i] with 4-kiB PTEs
     for(int i = 0; i < 512; i++){
-        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        if (i >= STRESS_START && i < STRESS_TOP)
         {
             s1pt[4][i] = (addr >> 2) | PTE_AD |
             PTE_V | PTE_U | PTE_RWX;
@@ -211,7 +211,7 @@ void s2pt_init(){
 
     //# Fill the third-level table (s2pt[2][i]) with 4-kiB PTEs
     for(int i = 0; i < TEST_PAGE_MAX; i++){
-        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        if (i >= STRESS_START && i < STRESS_TOP)
         {
             s2pt[2][i] = (addr >> 2) | PTE_AD |
             PTE_V | PTE_U | PTE_RWX;
@@ -232,7 +232,7 @@ void s2pt_init(){
 
     //# Fill s2pt[3][i] with 4-kiB PTEs defined in the table
     for(int i = 0; i < 512; i++){
-        if (i >= STRESS_START_RD && i < STRESS_TOP_WR)
+        if (i >= STRESS_START && i < STRESS_TOP)
         {
             s2pt[3][i] = (addr >> 2) | PTE_AD |
             PTE_V | PTE_U | PTE_RWX;

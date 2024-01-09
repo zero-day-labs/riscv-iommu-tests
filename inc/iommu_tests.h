@@ -17,7 +17,7 @@
 #define PAGE_SIZE           0x1000ULL     // 4kiB
 
 // iDMA modules generate an interrupt after completing a transfer
-#define IDMA_IRQ_EN     (1)
+#define IDMA_IRQ_EN     (0)
 
 // The IOMMU IP supports MSI translation
 // If set, DCs are configured in extended format
@@ -39,11 +39,10 @@
 #define PMIP_MASK           (1UL << 2)
 
 // Number of transfers for latency test
-#define N_TRANSFERS         (1000)
+#define N_TRANSFERS         (200)
 
 // Number of mappings (PTEs) used for the latency test
-#define N_RD_MAPPINGS       (16)
-#define N_WR_MAPPINGS       (16)
+#define N_MAPPINGS       (32)
 
 typedef uint64_t pte_t;
 
