@@ -26,9 +26,7 @@
 
 // MSI address mask and pattern
 #define MSI_ADDR_MASK       (0x100286ULL)   // 0001_0000_0000_0010_1000_0110
-#define MSI_ADDR_PATTERN    (0x000385ULL)   // 0000_0000_0000_0011_1000_0101
-// MSI GPA                  0x100103ULL        0001_0000_0000_0001_0000_0011 (IFN 10001)
-// MSI GPA                  0x100183ULL        0001_0000_0000_0001_1000_0011 (IFN 10101)
+#define MSI_ADDR_PATTERN    (0x000386ULL)   // 0000_0000_0000_0011_1000_0110
 
 // DC.tc flags
 #define DC_TC_VALID     (1ULL << 0 )    // Valid

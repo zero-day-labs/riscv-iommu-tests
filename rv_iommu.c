@@ -130,8 +130,9 @@ void init_iommu()
     // Example:     MSI Mask:       ... 0010 0110 1001
     //              MSI Pattern:    ... 00Xa bXXc XdeX
     //              GPPN            ... 00Ya bYYc YdeY
-    INFO("Configuring MSI page tables");
+    INFO("Configuring MSI page tables and MRIF");
     msi_pt_init();
+    mrif_init();
 
     //# Program the ddtp
     // Assume device_id width same as AXI ID width. Assume DC extended format.

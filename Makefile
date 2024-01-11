@@ -33,7 +33,7 @@ endif
 TARGET := $(build_dir)/rv_iommu_test
 c_srcs := main.c iommu_pts.c rvh_test.c command_queue.c\
 	iommu_tests.c test_register.c device_contexts.c\
-	fault_queue.c msi_pts.c rv_iommu.c idma.c\
+	fault_queue.c msi_pts.c rv_iommu.c idma.c dbg_if.c\
 	$(addprefix $(plat_dir)/, $(notdir $(wildcard $(plat_dir)/*.c)))
 asm_srcs := boot.S handlers.S  $(wildcard $(plat_dir)/*.S)
 ld_file:=linker.ld

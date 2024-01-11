@@ -22,9 +22,28 @@
 
 #include <msi_pts.h>
 
+/**
+ *                 MASK               GPPN                 MASK             PATTERN
+ *          (~0010_1000_0110) & (0001_1000_0000) == (~0010_1000_0110) & (0011_1000_0110)
+ *           (1101_0111_1001) & (0001_1000_0000) ==  (1101_0111_1001) & (0011_1000_0110)
+ *                              (0001_0000_0000) ==  (0001_0000_0000)
+ * 
+ * extract(0001_0000_0000_0001_1000_0000,   addr
+ *         0001_0000_0000_0010_1000_0110)   mask
+ *            1             0  1     00
+ */
+
+// MSI GPA 1                0x100102ULL        0001_0000_0000_0001_0000_0010 (IFN 10001 - 17)
+// MSI GPA 2                0x100106ULL        0001_0000_0000_0001_0000_0110 (IFN 10011 - 19)
+// MSI GPA 3                0x100180ULL        0001_0000_0000_0001_1000_0000 (IFN 10100 - 20)
+// MSI GPA 4                0x100182ULL        0001_0000_0000_0001_1000_0010 (IFN 10101 - 21)
+// MSI GPA 5                0x100186ULL        0001_0000_0000_0001_1000_0110 (IFN 10111 - 23)
+
 // 32 MSI PTEs, each PTE is 16-bytes, base address aligned to 4-kiB
-// When having more than 1 device, it must be upgraded to a 2-dimensional array
 uint64_t msi_pt[MSI_N_ENTRIES * 2] __attribute__((aligned(PAGE_SIZE)));
+
+// MRIF
+uint64_t mrif[64] __attribute__((aligned(512)));
 
 void msi_pt_init()
 {
@@ -36,7 +55,7 @@ void msi_pt_init()
         msi_pt[i] = 0;
     }
 
-    // Fill MSI PT with entries.
+    // Fill MSI PT with entries in BT mode.
     for(int i = 0; i < (MSI_N_ENTRIES * 2); i+=2)
     {
         msi_pt[i]   = MSI_PTE_VALID | MSI_PTE_BT_MODE | (addr >> 2);
@@ -44,5 +63,43 @@ void msi_pt_init()
         addr +=  PAGE_SIZE;
     }
 
+    // Configure MSI PTEs in MRIF mode
+    // MSI GPA 3                0x100180ULL        0001_0000_0000_0001_1000_0000 (IFN 10100 - 20)
+    // Validate two-stage MSI translation
+    msi_pt[20]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[20+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
+    // MSI GPA 4                0x100182ULL        0001_0000_0000_0001_1000_0010 (IFN 10101 - 21)
+    // Validate second-stage-only MSI translation
+    msi_pt[21]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[21+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_2) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
+    // MSI GPA 5                0x100186ULL        0001_0000_0000_0001_1000_0110 (IFN 10111 - 23)
+    // Validate error propagation
+    msi_pt[23]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK) | MSI_PTE_CUSTOM;
+    msi_pt[23+1] = ((uint64_t)NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    (((uint64_t)NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
     // DC.msiptp is programed with the base address of msi_pt[] in device_contexts.c
+}
+
+/**
+ *  Configure IP and IE bits within the MRIF
+ */
+void mrif_init()
+{
+    // Interrupt Identity 1
+    // IP
+    mrif[INT_IP_IDX_1] = 0;
+    // IE
+    mrif[INT_IE_IDX_1] = INT_MASK_1;
+
+    // Interrupt Identity 2
+    // IP
+    mrif[INT_IP_IDX_2] = 0;
+    // IE
+    // mrif[INT_IE_IDX_2] = INT_MASK_2;
+    mrif[INT_IE_IDX_2] = 0;
 }

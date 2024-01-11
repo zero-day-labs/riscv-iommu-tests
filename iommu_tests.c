@@ -5,6 +5,7 @@
 #include <msi_pts.h>
 #include <iommu_pts.h>
 #include <hpm.h>
+#include <dbg_if.h>
 #include <rv_iommu.h>
 #include <idma.h>
 
@@ -89,6 +90,9 @@ extern uint64_t msi_addr_hpm;
 extern uint32_t msi_data_cq;
 extern uint32_t msi_data_fq;
 extern uint32_t msi_data_hpm;
+
+// MRIF
+extern uint64_t mrif[];
 
 /**
  *  Test SoC with iDMA module directly connected to the XBAR, i.e., without IOMMU.
@@ -421,7 +425,7 @@ bool second_stage_only(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup_addr(0, read_vaddr2, write_vaddr2);
+        idma_setup(0, read_vaddr2, write_vaddr2, 4);
         if (idma_exec_transfer(0) != 0)
             {ERROR("iDMA misconfigured")}
 
@@ -472,7 +476,7 @@ bool two_stage_translation(){
     uintptr_t write_vaddr2 = TEST_VADDR_2MIB;
     uintptr_t write_paddr3 = TEST_PADDR_1GIB;
     uintptr_t write_vaddr3 = TEST_VADDR_1GIB;
-    uintptr_t write_paddr4 = MSI_BASE_IF_SPA + (21 * PAGE_SIZE);
+    uintptr_t write_paddr4 = MSI_BASE_IF_SPA + (19 * PAGE_SIZE);
     uintptr_t write_vaddr4 = virt_page_base(MSI_W2);
 
     //# Write known values to memory
@@ -522,7 +526,7 @@ bool two_stage_translation(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup_addr(0, read_vaddr4, write_vaddr4);
+        idma_setup(0, read_vaddr4, write_vaddr4, 4);
         if (idma_exec_transfer(0) != 0)
             {ERROR("iDMA misconfigured")}
 
@@ -996,6 +1000,284 @@ bool hpm(){
 
     // Clear ipsr
     write32(ipsr_addr, 0x7UL);
+
+    TEST_END();
+}
+
+
+/**
+ *  MRIF support for MSI translation
+ * 
+ *  TEST 1
+ *  Trigger a second-stage-only address translation using a GPA that maps to an MSI PTE in MRIF mode
+ *  The data of this transfer is the interrupt ID of an MRIF with IE set
+ *  The write of the MSI notice is verified
+ * 
+ *  TEST 2
+ *  Trigger a two-stage address translation using a GVA->GPA mapping that maps to an MSI PTE in MRIF mode
+ *  The data of this transfer is the interrupt ID of an MRIF with IE clear. Thus, the MSI notice is not written
+ * 
+ *  TEST 3
+ *  Trigger an MSI translation with an MSI PTE in MRIF mode, and custom bit set (misconfigured)
+ *  Check fault record written to the FQ
+ * 
+ *  TEST 4
+ *  Repeat the same transfer of TEST 2, but with an invalid interrupt identity (bits [31:11] not zero)
+ */
+bool mrif_support(){
+
+    TEST_START();
+
+    //# TEST 1: MRIF transaction with second-stage only and MSI notice write
+    // Configure data structures and IOMMU
+    fence_i();
+    set_iommu_1lvl();
+    set_iosatp_bare();
+    set_iohgatp_sv39x4();
+    set_msi_flat();
+    VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
+
+    // DDTC Invalidation
+    ddt_inval(false, idma_ids[0]);
+
+    // Get addresses
+    uintptr_t read_paddr1 = phys_page_base(MSI_R3);
+    uintptr_t read_vaddr1 = virt_page_base(MSI_R3);
+
+    uintptr_t write_vaddr1 = virt_page_base(MSI_W3);
+
+    write32(read_paddr1, INT_ID_1);
+    write32((uintptr_t)NOTICE_ADDR_1, 0);
+
+    // Config iDMA and init transfer
+    idma_setup(0, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(0) != 0)
+        {ERROR("iDMA misconfigured")}
+    
+    for (size_t i = 0; i < 100; i++)
+        ;
+    
+    // Check IP bit
+    bool check = ((mrif[INT_IP_IDX_1] & INT_MASK_1) != 0);
+    TEST_ASSERT("MRIF with Second-stage only: IP bit set", check);
+    // Check MSI notice
+    check = (read32(NOTICE_ADDR_1) == NOTICE_DATA);
+    TEST_ASSERT("MRIF with Second-stage only: MSI notice matches", check);
+
+    //# TEST 2: MRIF transaction with two-stage and IE disabled (no MSI notice)
+    // Enable first-stage translation
+    set_iosatp_sv39();
+    VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
+
+    // DDTC Invalidation
+    ddt_inval(false, idma_ids[0]);
+
+    // Get addresses
+    uintptr_t read_paddr2 = phys_page_base(MSI_R4);
+    uintptr_t read_vaddr2 = virt_page_base(MSI_R4);
+
+    uintptr_t write_vaddr2 = virt_page_base(MSI_W4);
+
+    write32(read_paddr2, INT_ID_2);
+    write32((uintptr_t)NOTICE_ADDR_2, 0);
+
+    // Config iDMA and init transfer
+    idma_setup(0, read_vaddr2, write_vaddr2, 4);
+    if (idma_exec_transfer(0) != 0)
+        {ERROR("iDMA misconfigured")}
+    
+    for (size_t i = 0; i < 100; i++)
+        ;
+    
+    // Check IP bit
+    check = ((mrif[INT_IP_IDX_2] & INT_MASK_2) != 0);
+    TEST_ASSERT("MRIF with two-stage translation: IP bit set", check);
+    // Check MSI notice (not written)
+    check = (read32(NOTICE_ADDR_2) == 0);
+    TEST_ASSERT("MRIF with two-stage translation: MSI notice not written as IE is clear", check);
+
+    //# TEST 3: MRIF transaction with misconfigured MSI PTE (custom bit set)
+    // Get addresses
+    uintptr_t read_vaddr3 = virt_page_base(MSI_R5);
+
+    uintptr_t write_vaddr3 = virt_page_base(MSI_W5);
+
+    // No need to configure data in physical addresses as transfer will fail
+
+    // Config iDMA and init transfer
+    idma_setup(0, read_vaddr3, write_vaddr3, 4);
+    if (idma_exec_transfer(0) != 0)
+        {ERROR("iDMA misconfigured")}
+    
+    for (size_t i = 0; i < 100; i++)
+        ;
+    
+    // Check fault record written in memory
+    uint64_t fq_entry[4];
+    if (fq_read_record(fq_entry) != 0)
+        {ERROR("IOMMU did not generated a new FQ record when expected")}
+
+    bool check_cause = ((fq_entry[0] & CAUSE_MASK) == MSI_PTE_INVALID);
+    bool check_iova  = (fq_entry[2] == write_vaddr3);
+
+    TEST_ASSERT("MRIF: Cause code matches with induced fault code", check_cause);
+    TEST_ASSERT("MRIF: Recorded IOVA matches with input IOVA", check_iova);
+
+    // Clear ipsr.fip
+    write32(ipsr_addr, 0x7UL);
+
+    //# TEST 4: Transaction discarding mechanism using an invalid interrupt ID
+    //! VERIFY MRIFC hit with traces
+
+    fence_i();
+    write32(read_paddr1, 0xFFFUL);          // Invalid int. ID
+    mrif[INT_IP_IDX_1] = 0;                 // clear IP
+    write32((uintptr_t)NOTICE_ADDR_1, 0);   // clear MSI notice
+
+    // Config iDMA and init transfer
+    idma_setup(0, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(0) != 0)
+        {ERROR("iDMA misconfigured")}
+    
+    for (size_t i = 0; i < 100; i++)
+        ;
+    
+    // Check IP bit
+    check = ((mrif[INT_IP_IDX_1] & INT_MASK_1) == 0);
+    TEST_ASSERT("MRIF discard mechanism: IP bit not set", check);
+    // Check MSI notice (not written)
+    check = (read32(NOTICE_ADDR_1) == 0);
+    TEST_ASSERT("MRIF discard mechanism: MSI notice not written as transaction was discarded", check);
+
+    TEST_END();
+}
+
+/**
+ *  Debug Register Interface
+ * 
+ *  TEST 1
+ *  4kiB translation
+ * 
+ *  TEST 2
+ *  2MiB translation
+ * 
+ *  TEST 3
+ *  1GiB translation
+ * 
+ *  TEST 4
+ *  MSI translation using DBG IF (Error propagation)
+ * 
+ */
+bool dbg_interface(){
+
+    TEST_START();
+
+    fence_i();
+    set_iommu_1lvl();
+    set_iosatp_sv39();
+    set_iohgatp_sv39x4();
+    set_msi_flat();
+    VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
+
+    // Get virtual addresses
+    uint64_t vaddr1 = virt_page_base(TWO_STAGE_W4K);
+    uint64_t vaddr2 = TEST_VADDR_2MIB;
+    uint64_t vaddr3 = TEST_VADDR_1GIB;
+    uint64_t vaddr4 = virt_page_base(MSI_W2);
+
+    uintptr_t paddr1 = phys_page_base(TWO_STAGE_W4K);
+    uintptr_t paddr2 = TEST_PADDR_2MIB;
+    uintptr_t paddr3 = TEST_PADDR_1GIB;
+
+    //# TEST 1: 4kiB translation
+    // Setup translation
+    dbg_set_iova(vaddr1);
+    dbg_set_did(idma_ids[0]);
+    dbg_set_pv(false);
+    dbg_set_rw(true);
+    dbg_set_exe(false);
+    dbg_set_priv(true);
+
+    // Trigger translation
+    dbg_trigger_translation();
+
+    // Wait for the transaction to be completed
+    while (!dbg_is_complete())
+        ;
+    
+    // Check response register
+    bool check = (!dbg_is_fault() && !dbg_is_superpage() &&
+                    (dbg_translated_ppn() == (paddr1 >> 12)));
+    TEST_ASSERT("DBG IF: First transfer response matches", check);
+
+    //# TEST 2: 2MiB translation
+    // Setup translation
+    dbg_set_iova(vaddr2);
+    dbg_set_exe(true);
+    dbg_set_priv(false);
+
+    // Trigger translation
+    dbg_trigger_translation();
+
+    // Wait for the transaction to be completed
+    while (!dbg_is_complete())
+        ;
+    
+    // Check response register
+    check = (!dbg_is_fault() && dbg_is_superpage() &&
+                    ((dbg_translated_ppn() >> 9) == (paddr2 >> 21)));
+    TEST_ASSERT("DBG IF: Second transfer response matches", check);
+
+    // Check PPN encoding
+    check = (dbg_ppn_encode_x() == (uint8_t)8);
+    TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
+
+    //# TEST 3: 1GiB translation
+    // Setup translation
+    dbg_set_iova(vaddr3);
+    dbg_set_exe(false);
+
+    // Trigger translation
+    dbg_trigger_translation();
+
+    // Wait for the transaction to be completed
+    while (!dbg_is_complete())
+        ;
+    
+    // Check response register
+    check = (!dbg_is_fault() && dbg_is_superpage() &&
+                    ((dbg_translated_ppn() >> 18) == (paddr3 >> 30)));
+    TEST_ASSERT("DBG IF: Third transfer response matches", check);
+
+    // Check PPN encoding
+    check = (dbg_ppn_encode_x() == (uint8_t)17);
+    TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
+
+    //# TEST 4: MSI translation using DBG IF (Error propagation)
+    // Setup translation
+    dbg_set_iova(vaddr4);
+
+    // Trigger translation
+    dbg_trigger_translation();
+
+    // Wait for the transaction to be completed
+    while (!dbg_is_complete())
+        ;
+    
+    // Check response register
+    check = (dbg_is_fault());
+    TEST_ASSERT("DBG IF: Fourth transfer generates fault, as it triggers MSI translation", check);
+
+    // Check fault
+    uint64_t fq_entry[4];
+    if (fq_read_record(fq_entry) != 0)
+        {ERROR("IOMMU did not generated a new FQ record when expected")}
+
+    bool check_cause = ((fq_entry[0] & CAUSE_MASK) == TRANS_TYPE_DISALLOWED);
+    bool check_iova  = (fq_entry[2] == vaddr4);
+
+    TEST_ASSERT("DBG IF w/ MSI: Cause code matches with induced fault code", check_cause);
+    TEST_ASSERT("DBG IF w/ MSI: Recorded IOVA matches with input IOVA", check_iova);
 
     TEST_END();
 }

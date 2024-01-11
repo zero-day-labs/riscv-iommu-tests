@@ -42,7 +42,7 @@
 #define N_TRANSFERS         (200)
 
 // Number of mappings (PTEs) used for the latency test
-#define N_MAPPINGS       (32)
+#define N_MAPPINGS          (32)
 
 typedef uint64_t pte_t;
 
