@@ -1,17 +1,16 @@
 # RISCV IOMMU Architectural Tests
 
+## License
+
+This work is licensed under the Apache-2.0 License. See the [LICENSE](./LICENSE) file for details.
+
 ## Table of Contents
 
-- [License](#license)
 - [About this Project](#about-this-project)
 - [Configuring the Tests](#configuring-the-tests)
 - [Building the application](#building-the-application)
 
 ***
-
-## License
-
-This work is licensed under the Apache-2.0 License. See the [LICENSE](./LICENSE) file for details.
 
 ## About this Project 
 This repository hosts a framework of architectural tests for the RISC-V IOMMU. It was developed as an adaptation of the [RISC-V Hypervisor extension tests](https://github.com/ninolomata/riscv-hyp-tests) framework to test a [RISC-V IOMMU IP](https://github.com/zero-day-labs/riscv-iommu) within a [CVA6-based SoC](https://github.com/zero-day-labs/cva6/tree/feat/iommu). To perform DMA transfers, we use the [PULP iDMA](https://github.com/pulp-platform/iDMA) module.
