@@ -63,23 +63,25 @@ void msi_pt_init()
         addr +=  PAGE_SIZE;
     }
 
+    fence_i();
+
     // Configure MSI PTEs in MRIF mode
     // MSI GPA 3                0x100180ULL        0001_0000_0000_0001_1000_0000 (IFN 10100 - 20)
     // Validate two-stage MSI translation
-    msi_pt[20]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
-    msi_pt[20+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+    msi_pt[40]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[40+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
                     ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
 
     // MSI GPA 4                0x100182ULL        0001_0000_0000_0001_1000_0010 (IFN 10101 - 21)
     // Validate second-stage-only MSI translation
-    msi_pt[21]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
-    msi_pt[21+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_2) >> 2) & MSI_PTE_NPPN_MASK) | 
+    msi_pt[42]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[42+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_2) >> 2) & MSI_PTE_NPPN_MASK) | 
                     ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
 
     // MSI GPA 5                0x100186ULL        0001_0000_0000_0001_1000_0110 (IFN 10111 - 23)
     // Validate error propagation
-    msi_pt[23]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK) | MSI_PTE_CUSTOM;
-    msi_pt[23+1] = ((uint64_t)NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+    msi_pt[46]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK) | MSI_PTE_CUSTOM;
+    msi_pt[46+1] = ((uint64_t)NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
                     (((uint64_t)NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
 
     // DC.msiptp is programed with the base address of msi_pt[] in device_contexts.c

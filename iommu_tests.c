@@ -844,6 +844,14 @@ bool msi_generation(){
     check = (cq_msi_data == msi_data_cq);
     TEST_ASSERT("MSI data corresponding to CQ interrupt vector matches after clearing mask", check);
 
+    // Discard fault records written in memory
+    uint64_t fq_entry[4];
+    if (fq_read_record(fq_entry) != 0)
+        {ERROR("IOMMU did not generated a new FQ record when expected")}
+
+    if (fq_read_record(fq_entry) != 0)
+        {ERROR("IOMMU did not generated a new FQ record when expected")}
+
     TEST_END();
 }
 
@@ -1127,7 +1135,6 @@ bool mrif_support(){
     write32(ipsr_addr, 0x7UL);
 
     //# TEST 4: Transaction discarding mechanism using an invalid interrupt ID
-    //! VERIFY MRIFC hit with traces
 
     fence_i();
     write32(read_paddr1, 0xFFFUL);          // Invalid int. ID
@@ -1185,9 +1192,9 @@ bool dbg_interface(){
     uint64_t vaddr3 = TEST_VADDR_1GIB;
     uint64_t vaddr4 = virt_page_base(MSI_W2);
 
-    uintptr_t paddr1 = phys_page_base(TWO_STAGE_W4K);
-    uintptr_t paddr2 = TEST_PADDR_2MIB;
-    uintptr_t paddr3 = TEST_PADDR_1GIB;
+    uint64_t paddr1 = phys_page_base(TWO_STAGE_W4K);
+    uint64_t paddr2 = TEST_PADDR_2MIB;
+    uint64_t paddr3 = TEST_PADDR_1GIB;
 
     //# TEST 1: 4kiB translation
     // Setup translation
@@ -1225,7 +1232,7 @@ bool dbg_interface(){
     
     // Check response register
     check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() >> 9) == (paddr2 >> 21)));
+                    ((dbg_translated_ppn() & (~0x0FFULL)) == (paddr2 >> 12)));
     TEST_ASSERT("DBG IF: Second transfer response matches", check);
 
     // Check PPN encoding
@@ -1246,7 +1253,7 @@ bool dbg_interface(){
     
     // Check response register
     check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() >> 18) == (paddr3 >> 30)));
+                    ((dbg_translated_ppn() & (~0x1FFFFULL)) == (paddr3 >> 12)));
     TEST_ASSERT("DBG IF: Third transfer response matches", check);
 
     // Check PPN encoding

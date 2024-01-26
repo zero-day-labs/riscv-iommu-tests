@@ -5,7 +5,7 @@
  *  iDMA device IDs 
  */
 uint64_t idma_ids[N_DMA] = {
-    1ULL,
+    10ULL,
     2ULL,
     3ULL,
     4ULL,

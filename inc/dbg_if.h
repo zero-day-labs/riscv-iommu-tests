@@ -28,8 +28,8 @@ void dbg_set_rw(bool is_rw);
 void dbg_set_exe(bool is_exe);
 void dbg_trigger_translation(void);
 bool dbg_is_complete(void);
-bool dbg_is_fault(void);
-bool dbg_is_superpage(void);
+uint8_t dbg_is_fault(void);
+uint8_t dbg_is_superpage(void);
 uint64_t dbg_translated_ppn(void);
 uint8_t dbg_ppn_encode_x(void);
 

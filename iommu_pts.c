@@ -77,15 +77,19 @@ void s1pt_init(){
         addr +=  SUPERPAGE_SIZE(0);
     }
 
+    fence_i();
+
     // Set non-leaf PTE (s1pt[0][3]) pointing to first-lvl PT (s1pt[1][0])
     s1pt[0][3] = 
-        PTE_V | (((uintptr_t)&s1pt[1][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s1pt[1][0]) >> 2) & PTE_PPN_MSK);
 
     // addr = MEM_BASE;
     addr = 0xC0000000ULL;
 
     // Clear first-level table entries
     for(int i = 0; i < 512; i++) s1pt[1][i] = 0;
+
+    fence_i();
 
     //# Set 64 leaf 2MiB PTEs.
     //  i = [0,63]
@@ -97,11 +101,11 @@ void s1pt_init(){
 
     // Setup non-leaf entry pointing to second-level PT (s1pt[2][0]) from root table
     s1pt[0][4] =
-        PTE_V | (((uintptr_t)&s1pt[2][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s1pt[2][0]) >> 2) & PTE_PPN_MSK);
 
     // Setup non-leaf entry pointing to third-level PT (s1pt[3][0]) from second-lvl table
     s1pt[2][0] = 
-        PTE_V | (((uintptr_t)&s1pt[3][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s1pt[3][0]) >> 2) & PTE_PPN_MSK);
 
     addr = TEST_VPAGE_BASE;
     // addr = TEST_PPAGE_BASE;
@@ -123,7 +127,7 @@ void s1pt_init(){
 
     // Setup non-leaf entry pointing to fourth-level PT (s1pt[4][0]) from second-lvl table
     s1pt[2][1] = 
-        PTE_V | (((uintptr_t)&s1pt[4][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s1pt[4][0]) >> 2) & PTE_PPN_MSK);
 
     addr = 4 * SUPERPAGE_SIZE(0) + SUPERPAGE_SIZE(1);   // 4 * 0x4000_0000 + 0x0020_0000 = 1_0020_0000
 
@@ -144,7 +148,7 @@ void s1pt_init(){
 
     // Setup non-leaf entry pointing to fifth-level PT (s1pt[5][0]) from root table
     s1pt[0][5] = 
-        PTE_V | (((uintptr_t)&s1pt[5][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s1pt[5][0]) >> 2) & PTE_PPN_MSK);
     
     addr = 5 * SUPERPAGE_SIZE(0);   // 5 * 0x4000_0000 = 0x1_4000_0000
 
@@ -181,14 +185,18 @@ void s2pt_init(){
         addr +=  SUPERPAGE_SIZE(0);
     }
 
+    fence_i();
+
     //# Set non-leaf entry pointing to the base address of s2pt
     s2pt_root[3] =
-        PTE_V | (((uintptr_t)&s2pt[0][0]) >> 2);     // s2pt_root[3]
+        PTE_V | ((((uintptr_t)&s2pt[0][0]) >> 2) & PTE_PPN_MSK);     // s2pt_root[3]
 
     addr = MEM_BASE;
 
     // Clear first-level table entries
     for(int i = 0; i < 512; i++) s2pt[0][i] = 0;
+
+    fence_i();
 
     //# Set 64 leaf 2MiB PTEs.
     // i = [0,63]
@@ -201,17 +209,17 @@ void s2pt_init(){
     //# Non-leaf entries
     // Set 2 non-leaf entries pointing to the base address of the second-level table (s2pt[1][0])
     s2pt_root[4] =
-        PTE_V | (((uintptr_t)&s2pt[1][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s2pt[1][0]) >> 2) & PTE_PPN_MSK);
 
     s2pt_root[2047] =
-        PTE_V | (((uintptr_t)&s2pt[1][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s2pt[1][0]) >> 2) & PTE_PPN_MSK);
 
     // Set first and last entries of s2pt[1][i] pointing to the base address of the third-level table
     s2pt[1][0] = 
-        PTE_V | (((uintptr_t)&s2pt[2][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s2pt[2][0]) >> 2) & PTE_PPN_MSK);
 
     s2pt[1][511] = 
-        PTE_V | (((uintptr_t)&s2pt[2][0]) >> 2);
+        PTE_V | (((((uintptr_t)&s2pt[2][0]) >> 2)) & PTE_PPN_MSK);
 
     addr = TEST_PPAGE_BASE;
 
@@ -232,7 +240,7 @@ void s2pt_init(){
 
     // Non-leaf entry pointing to s2pt[3][0]
     s2pt[1][1] = 
-        PTE_V | (((uintptr_t)&s2pt[3][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s2pt[3][0]) >> 2) & PTE_PPN_MSK);
 
     addr = TEST_PPAGE_BASE;
 
@@ -253,7 +261,7 @@ void s2pt_init(){
 
     // Non-leaf entry pointing to s2pt[4][0] from root table
     s2pt_root[5] =
-        PTE_V | (((uintptr_t)&s2pt[4][0]) >> 2);
+        PTE_V | ((((uintptr_t)&s2pt[4][0]) >> 2) & PTE_PPN_MSK);
 
     addr = TEST_PPAGE_BASE;
 

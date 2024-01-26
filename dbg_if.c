@@ -77,18 +77,18 @@ bool dbg_is_complete()
     return ((tr_req_ctl & TR_REQ_CTL_GO_BIT != 0) ? (false) : (true));
 }
 
-bool dbg_is_fault()
+uint8_t dbg_is_fault()
 {
     uint64_t tr_response = read64(tr_response_addr);
 
-    return ((tr_response & TR_RESPONSE_FAULT_BIT != 0) ? (true) : (false));
+    return (uint8_t)(tr_response & TR_RESPONSE_FAULT_BIT);
 }
 
-bool dbg_is_superpage()
+uint8_t dbg_is_superpage()
 {
     uint64_t tr_response = read64(tr_response_addr);
 
-    return ((tr_response & TR_RESPONSE_SP_BIT != 0) ? (true) : (false));
+    return (uint8_t)((tr_response & TR_RESPONSE_SP_BIT) >> 9);
 }
 
 uint64_t dbg_translated_ppn()

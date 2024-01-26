@@ -23,17 +23,17 @@
 
 #define NOTICE_ADDR_1           (0x83008000ULL)
 #define NOTICE_ADDR_2           (0x83009000ULL)
-#define NOTICE_DATA             (0xDEADBEEFUL)
+#define NOTICE_DATA             (0x7ACUL)
 
 #define INT_ID_1                (300UL)
 #define INT_OFFSET_1            ((INT_ID_1 >> 2) & (~0xFUL))
-#define INT_IP_IDX_1            (INT_OFFSET_1 / 16)
+#define INT_IP_IDX_1            (INT_OFFSET_1 / 8)
 #define INT_IE_IDX_1            (INT_IP_IDX_1 + 1)
 #define INT_MASK_1              (1ULL << (INT_ID_1 & 0x3FUL))
 
 #define INT_ID_2                (600UL)
 #define INT_OFFSET_2            ((INT_ID_2 >> 2) & (~0xFUL))
-#define INT_IP_IDX_2            (INT_OFFSET_2 / 16)
+#define INT_IP_IDX_2            (INT_OFFSET_2 / 8)
 #define INT_IE_IDX_2            (INT_IP_IDX_2 + 1)
 #define INT_MASK_2              (1ULL << (INT_ID_2 & 0x3FUL))
 
