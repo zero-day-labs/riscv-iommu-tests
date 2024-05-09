@@ -4,3 +4,4 @@ deploy*
 *Xil*
 *.jou
 *.log
+*.o
