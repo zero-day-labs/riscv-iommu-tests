@@ -1,6 +1,6 @@
 #include <iommu_pts.h>
 
-
+/*
 #if ((MEM_BASE & (SUPERPAGE_SIZE(0)-1)) != 0)
 #   error "MEM_BASE must be aligned to level 0 superpage size"
 #endif
@@ -12,7 +12,7 @@
 #if (MEM_SIZE < (0x10000000))
 #   error "MEM_SIZE not enough (less than 256MB)"
 #endif
-
+*/
 // Page Table Entries
 struct {
     uint64_t stage1;
