@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/errno.h>
-#include "8250_uart.h"
+#include "uart.h"
 uart8250_t * uart = (uart8250_t *) (0x10000000) ;
 // void* memset(void* dest, int byte, size_t len)
 // {
@@ -57,9 +57,9 @@ int _write(int file, char *ptr, int len)
     {
         if (ptr[i] == '\n')
         {
-            uart_putc(uart, '\r');
+            _putchar(uart, '\r');
         }
-        uart_putc(uart, ptr[i]);
+        putchar(uart, ptr[i]);
     }
 
     return len;
@@ -120,5 +120,5 @@ int _kill(int pid, int sig)
 }
 
 void _init(){
-    uart_init(uart);
+    uart_open();
 }

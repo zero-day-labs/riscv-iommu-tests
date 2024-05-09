@@ -9,6 +9,7 @@
 #include <csrs.h>
 #include <instructions.h>
 #include <platform.h>
+#include "printf.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
