@@ -170,10 +170,6 @@ static inline uint64_t hsvd(uintptr_t addr, uint64_t value){
     return value;
 }
 
-static inline void wfi() {
-    asm ("wfi" ::: "memory");
-}
-
 #define LOAD_INSTRUCTION(name, instruction, type) \
     static inline type name(uintptr_t addr){ \
         type value; \
