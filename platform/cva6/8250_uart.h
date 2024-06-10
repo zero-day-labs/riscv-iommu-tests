@@ -81,5 +81,6 @@ typedef uart8250_t bao_uart_t;
 void uart_enable(volatile uart8250_t *uart);
 void uart_init(volatile uart8250_t *uart);
 void uart_puts(volatile uart8250_t *uart, const char* str);
+void uart_putc(volatile uart8250_t *uart, int8_t c);
 
 #endif /* UART8250_H */
