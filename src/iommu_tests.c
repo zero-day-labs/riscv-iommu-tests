@@ -44,18 +44,8 @@ extern uintptr_t cqt_addr;
 extern uintptr_t fqb_addr;
 extern uintptr_t fqh_addr;
 
-// ipsr
-extern uintptr_t ipsr_addr;
-
 // icvec
 extern uintptr_t icvec_addr;
-
-// HPM
-extern uintptr_t iocountovf_addr;
-extern uintptr_t iocountihn_addr;
-extern uintptr_t iohpmcycles_addr;
-extern uintptr_t iohpmctr_addr[];
-extern uintptr_t iohpmevt_addr[];
 
 // MSI Cfg table
 extern uintptr_t msi_addr_cq_addr;
@@ -275,7 +265,7 @@ bool iommu_off(){
     check_iova  = (fq_entry[2] == write_vaddr1);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
@@ -696,15 +686,15 @@ bool wsi_generation(){
         {ERROR("iDMA misconfigured")}
 
     // Check if ipsr.fip was set in case of error
-    bool check = ((read32(ipsr_addr) & FIP_MASK) == 2);
+    bool check = ((rv_iommu_get_ipsr() & FIP_MASK) == 2);
     TEST_ASSERT("ipsr.fip set on FQ recording", check);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     fence_i();
 
-    check = (read32(ipsr_addr) == 0);
+    check = (rv_iommu_get_ipsr() == 0);
     TEST_ASSERT("ipsr.fip cleared after writing 1", check);
 
     //# Check fault record written in memory
@@ -762,7 +752,7 @@ bool iofence(){
     TEST_ASSERT("cqcsr.fence_w_ip was set", check);
 
     // Check if ipsr.cip was set for WSI = 1
-    check = ((read32(ipsr_addr) & CIP_MASK) == 1);
+    check = ((rv_iommu_get_ipsr() & CIP_MASK) == 1);
     TEST_ASSERT("ipsr.cip setting on IOFENCE completion", check);
 
     // Check if data was correctly written in memory for AV = 1
@@ -773,7 +763,7 @@ bool iofence(){
 
     // Clear cqcsr.fence_w_ip and ipsr
     write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_END();
 }
@@ -845,7 +835,7 @@ bool msi_generation(){
     TEST_ASSERT("cqcsr.cmd_ill was set", check);
 
     // Check if ipsr.cip and ipsr.fip were set
-    check = ((read32(ipsr_addr) & (CIP_MASK | FIP_MASK)) == 3);
+    check = ((rv_iommu_get_ipsr() & (CIP_MASK | FIP_MASK)) == 3);
     TEST_ASSERT("ipsr.cip and ipsr.fip were set", check);
 
     // Check data for FQ vector
@@ -855,7 +845,7 @@ bool msi_generation(){
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
     write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     // Clear mask of CQ interrupt vector
     write32(msi_vec_ctl_cq_addr, 0x0UL);
@@ -906,46 +896,43 @@ bool hpm(){
 
     //# Clock counter overflow: WSI
     INFO("Configuring IGS to WSI");
-    // Configure the IOMMU to generate interrupts as WSI
-    uint32_t fctl = (1UL << 1);
-    write32(fctl_addr, fctl);
+    set_ig_wsi();
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     // Disable clock counter
-    uint32_t iocountinh = read32(iocountihn_addr) | 0x1UL;
-    write32(iocountihn_addr, iocountinh);
+    uint32_t iocountinh = rv_iommu_get_iocountihn() | 0x1UL;
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmcycles initial value
+    // We set it high to force it to overflow
     uint64_t iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
-    write64(iohpmcycles_addr, iohpmcycles);
+    rv_iommu_set_iohpmcycles(iohpmcycles);
 
     // Enable clock counter
     iocountinh &= (~0x1UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Monitor CY bit of iohpmcycles, wait for it to go high
     do
     {
-        iohpmcycles = read64(iohpmcycles_addr);
+        iohpmcycles = rv_iommu_get_iohpmcycles();
         printf("iohpmcycles value: %llx\n", iohpmcycles);
-        for (size_t i = 0; i < 10000; i++)
-            ;
     }
     while (!(iohpmcycles & (0x1ULL << 63)));
     
     // Check iocountovf bit
-    uint32_t iocountovf = read32(iocountovf_addr);
+    uint32_t iocountovf = rv_iommu_get_iocountovf();
     bool check = (iocountovf & 0x1UL);
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# Clock counter overflow: MSI
     // Configure the IOMMU to generate interrupts as MSI
@@ -953,21 +940,21 @@ bool hpm(){
     set_ig_msi();
 
     // Disable clock counter
-    iocountinh = read32(iocountihn_addr) | 0x1UL;
-    write32(iocountihn_addr, iocountinh);
+    iocountinh = rv_iommu_get_iocountihn() | 0x1UL;
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmcycles initial value
     iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
-    write64(iohpmcycles_addr, iohpmcycles);
+    rv_iommu_set_iohpmcycles(iohpmcycles);
 
     // Enable clock counter
     iocountinh &= (~0x1UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Monitor CY bit of iohpmcycles, wait for it to go high
     do
     {
-        iohpmcycles = read64(iohpmcycles_addr);
+        iohpmcycles = rv_iommu_get_iohpmcycles();
         printf("iohpmcycles value: %llx\n", iohpmcycles);
         for (size_t i = 0; i < 10000; i++)
             ;
@@ -976,12 +963,12 @@ bool hpm(){
     while (!(iohpmcycles & (0x1ULL << 63)));
     
     // Check iocountovf bit
-    iocountovf = read32(iocountovf_addr);
+    iocountovf = rv_iommu_get_iocountovf();
     check = (iocountovf & 0x1UL);
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Check data for HPM vector
@@ -990,7 +977,7 @@ bool hpm(){
     TEST_ASSERT("MSI data corresponding to HPM interrupt vector matches", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# Event counter overflow
     INFO("Configuring IGS to WSI");
@@ -998,16 +985,16 @@ bool hpm(){
     set_ig_wsi();
 
     // Disable iohpmctr[3]
-    iocountinh = read32(iocountihn_addr) | 0x10UL;  // Event ctr 3
-    write32(iocountihn_addr, iocountinh);
+    iocountinh = rv_iommu_get_iocountihn() | 0x10UL;  // Event ctr 3
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmctr[3] initial value
     uint64_t iohpmctr = 0xFFFFFFFFFFFFFFFFULL;
-    write64(iohpmctr_addr[3], iohpmctr);    // Event ctr 3
+    rv_iommu_set_iohpmctr(iohpmctr, 3);
 
     // Enable iohpmctr[3]
     iocountinh &= (~0x10UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Trigger two-stage translation to increment counter
     uintptr_t read_paddr1 = phys_page_base(HPM_R);
@@ -1021,21 +1008,21 @@ bool hpm(){
         {ERROR("iDMA misconfigured")}
 
     // Check iohpmevt.OF
-    uint64_t iohpmevt_3 = read64(iohpmevt_addr[3]);
+    uint64_t iohpmevt_3 = rv_iommu_get_iohpmevt(3);
     check = (iohpmevt_3 & IOHPMEVT_OF);
     TEST_ASSERT("iohpmevt_3.OF is set upon iohpmctr[3] overflow", check);
 
     // Check iocountovf.HPM[3]
-    iocountovf = read32(iocountovf_addr);
+    iocountovf = rv_iommu_get_iocountovf();
     check = (iocountovf & 0x10UL);
     TEST_ASSERT("iocountovf.hpm[3] is set upon iohpmctr[3] overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmctr[3] overflow", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_END();
 }
@@ -1164,7 +1151,7 @@ bool mrif_support(){
     TEST_ASSERT("MRIF: Recorded IOVA matches with input IOVA", check_iova);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# TEST 4: Transaction discarding mechanism using an invalid interrupt ID
 
@@ -1350,11 +1337,11 @@ bool latency_test(){
     iotinval_vma(false, false, false, 0, 0, 0);
     iotinval_gvma(false, false, 0, 0);
 
-    write64(iohpmctr_addr[0], (uint64_t) 0);
-    write64(iohpmctr_addr[1], (uint64_t) 0);
-    write64(iohpmctr_addr[2], (uint64_t) 0);
-    write64(iohpmctr_addr[3], (uint64_t) 0);
-    write64(iohpmctr_addr[4], (uint64_t) 0);
+    rv_iommu_set_iohpmctr(0, 0);
+    rv_iommu_set_iohpmctr(0, 1);
+    rv_iommu_set_iohpmctr(0, 2);
+    rv_iommu_set_iohpmctr(0, 3);
+    rv_iommu_set_iohpmctr(0, 5);
 
     stamp = CSRR(CSR_CYCLES);
     srand(stamp);
@@ -1407,11 +1394,11 @@ bool latency_test(){
 
     printf("Transfer average latency (in cycles): %llu\n", avg_lat/N_TRANSFERS);
 
-    printf("Untranslated Requests cnt: %llu\n", read64(iohpmctr_addr[0]));
-    printf("IOTLB miss cnt: %llu\n",            read64(iohpmctr_addr[1]));
-    printf("DDT Walks cnt: %llu\n",             read64(iohpmctr_addr[2]));
-    printf("First-stage PT walk cnt: %llu\n",   read64(iohpmctr_addr[3]));
-    printf("Second-stage PT walk cnt: %llu\n",  read64(iohpmctr_addr[4]));
+    printf("Untranslated Requests cnt: %llu\n", rv_iommu_get_iohpmctr(0));
+    printf("IOTLB miss cnt: %llu\n",            rv_iommu_get_iohpmctr(1));
+    printf("DDT Walks cnt: %llu\n",             rv_iommu_get_iohpmctr(2));
+    printf("First-stage PT walk cnt: %llu\n",   rv_iommu_get_iohpmctr(3));
+    printf("Second-stage PT walk cnt: %llu\n",  rv_iommu_get_iohpmctr(4));
 
     TEST_END();
 }

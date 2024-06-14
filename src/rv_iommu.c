@@ -7,45 +7,40 @@
 #include <iommu_pts.h>
 #include <hpm.h>
 
+typedef struct iommu {
+  uint64_t capabilities;// IOMMU implemented capabilities
+  uint32_t fctl;        // features control
+  uint32_t reserved0;
+  uint64_t ddtp;        // device directory table pointer
+  uint64_t cqb;         // command-queue base
+  uint32_t cqh;         // command-queue head
+  uint32_t cqt;         // command-queue tail
+  uint64_t fqb;         // fault-queue base
+  uint32_t fqh;         // fault-queue head
+  uint32_t fqt;         // fault-queue tail
+  uint64_t pqb;         // page-request-queue base
+  uint32_t pqh;         // page-request-queue head
+  uint32_t pqt;         // page-request-queue tail
+  uint32_t cqcsr;       // command-queue csr
+  uint32_t fqcsr;       // fault-queue csr
+  uint32_t pqcsr;       // page-request-queue csr
+  uint32_t ipsr;        // interrupt pending status register
+  uint32_t iocntovf;    // hpm counter overflows
+  uint32_t iocntinh;    // hpm counter inhibits
+  uint64_t iohpmcycles; // hpm cycles counter
+  uint64_t iohpmctr[IOMMU_HPM_COUNTERS]; // hpm event counters
+  uint64_t iohpmevt[IOMMU_HPM_COUNTERS]; // hpm event selector
+}__attribute__((__packed__, aligned(PAGE_SIZE))) iommu_t;
+
+/** IOMMU structure only visible inside IOMMU driver */
+static iommu_t *iommu = (void*)IOMMU_BASE_ADDR;
+
 /**
  *  IOMMU Memory-mapped registers 
  */
-// fctl
-uintptr_t fctl_addr = IOMMU_REG_ADDR(IOMMU_FCTL_OFFSET);
-
-// ddtp
-uint64_t ddtp_addr = IOMMU_REG_ADDR(IOMMU_DDTP_OFFSET);
-
-// ipsr
-uintptr_t ipsr_addr = IOMMU_REG_ADDR(IOMMU_IPSR_OFFSET);
 
 // icvec
 uintptr_t icvec_addr = IOMMU_REG_ADDR(IOMMU_ICVEC_OFFSET);
-
-// HPM
-uintptr_t iocountovf_addr = IOMMU_REG_ADDR(IOMMU_IOCOUNTOVF_OFFSET);
-uintptr_t iocountihn_addr = IOMMU_REG_ADDR(IOMMU_IOCOUNTINH_OFFSET);
-uintptr_t iohpmcycles_addr = IOMMU_REG_ADDR(IOMMU_IOHPMCYCLES_OFFSET);
-uintptr_t iohpmctr_addr[8] = {
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 0*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 1*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 2*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 3*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 4*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 5*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 6*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMCTR_OFFSET + 7*8)
-};
-uintptr_t iohpmevt_addr[8] = {
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 0*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 1*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 2*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 3*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 4*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 5*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 6*8),
-    IOMMU_REG_ADDR(IOMMU_IOHPMEVT_OFFSET + 7*8)
-};
 
 // MSI Cfg table
 uintptr_t msi_addr_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_3_OFFSET);
@@ -73,6 +68,107 @@ uint32_t msi_vec_ctl_hpm  = 0x0UL;
 
 // DDT
 extern uint64_t root_ddt[];
+
+
+
+/**
+ *  Set IOMMU OFF. All transactions are disallowed and blocked
+ */
+void set_iommu_off()
+{
+    // Program ddtp register with DDT mode and root DDT base PPN
+    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_OFF);
+
+    write64((uintptr_t)&iommu->ddtp, ddtp);
+}
+
+void set_iommu_bare()
+{
+    // Program ddtp register with DDT mode and root DDT base PPN
+    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_BARE);
+
+    write64((uintptr_t)&iommu->ddtp, ddtp);
+}
+
+void set_iommu_1lvl()
+{
+    // Program ddtp register with DDT mode and root DDT base PPN
+    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_1LVL);
+    
+    write64((uintptr_t)&iommu->ddtp, ddtp);
+}
+
+void set_ig_wsi()
+{
+    uint32_t fctl = (1UL << 1);
+    write32((uintptr_t)&iommu->fctl, fctl);
+}
+
+void set_ig_msi()
+{
+    uint32_t fctl = (0UL << 1);
+    write32((uintptr_t)&iommu->fctl, fctl);
+}
+
+uint32_t rv_iommu_get_ipsr() 
+{
+    return read32((uintptr_t)&iommu->ipsr);
+}
+
+void rv_iommu_set_ipsr(uint32_t ipsr_new) 
+{
+    write32((uintptr_t)&iommu->ipsr, ipsr_new);
+}
+
+void rv_iommu_clear_ipsr_fip()
+{
+    rv_iommu_set_ipsr(0x7UL);
+}
+
+uint32_t rv_iommu_get_iocountovf()
+{
+    return read32((uintptr_t)&iommu->iocntovf);
+}
+
+uint32_t rv_iommu_get_iocountihn()
+{
+    return read32((uintptr_t)&iommu->iocntinh);
+}
+
+void rv_iommu_set_iocountihn(uint32_t iocountihn_new)
+{
+    return write32((uintptr_t)&iommu->iocntinh, iocountihn_new);
+}
+
+uint64_t rv_iommu_get_iohpmcycles()
+{
+    return read64((uintptr_t)&iommu->iohpmcycles);
+}
+
+void rv_iommu_set_iohpmcycles(uint64_t iohpmcycles_new)
+{
+    return write64((uintptr_t)&iommu->iohpmcycles, iohpmcycles_new);
+}
+
+uint64_t rv_iommu_get_iohpmctr (size_t counter_idx)
+{
+    return read64((uintptr_t)&iommu->iohpmctr[counter_idx]);
+}
+
+void rv_iommu_set_iohpmctr(uint64_t iohpmctr_new, size_t counter_idx)
+{
+    return write64((uintptr_t)&iommu->iohpmctr[counter_idx], iohpmctr_new);
+}
+
+uint64_t rv_iommu_get_iohpmevt (size_t counter_idx)
+{
+    return read64((uintptr_t)&iommu->iohpmevt[counter_idx]);
+}
+
+void rv_iommu_set_iohpmevt(uint64_t iohpmevt_new, size_t counter_idx)
+{
+    return write64((uintptr_t)&iommu->iohpmevt[counter_idx], iohpmevt_new);
+}
 
 /**
  *  Configure:
@@ -204,54 +300,15 @@ void init_iommu()
     iohpmevt[3] = HPM_S1_PTW;
     iohpmevt[4] = HPM_S2_PTW;
 
-    write64(iohpmevt_addr[0], iohpmevt[0]);
-    write64(iohpmevt_addr[1], iohpmevt[1]);
-    write64(iohpmevt_addr[2], iohpmevt[2]);
-    write64(iohpmevt_addr[3], iohpmevt[3]);
-    write64(iohpmevt_addr[4], iohpmevt[4]);
+    rv_iommu_set_iohpmevt(iohpmevt[0], 0);
+    rv_iommu_set_iohpmevt(iohpmevt[1], 1);
+    rv_iommu_set_iohpmevt(iohpmevt[2], 2);
+    rv_iommu_set_iohpmevt(iohpmevt[3], 3);
+    rv_iommu_set_iohpmevt(iohpmevt[4], 4);
 
     // Enable counters by writing to iocountinh
     uint32_t iocountinh = (uint32_t)(~(CNT_MASK));    // Enable counters
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     VERBOSE("IOMMU off | iohgatp: Bare | iosatp: Bare | msiptp: Flat");
-}
-
-/**
- *  Set IOMMU OFF. All transactions are disallowed and blocked
- */
-void set_iommu_off()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_OFF);
-
-    write64(ddtp_addr, ddtp);
-}
-
-void set_iommu_bare()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_BARE);
-
-    write64(ddtp_addr, ddtp);
-}
-
-void set_iommu_1lvl()
-{
-    // Program ddtp register with DDT mode and root DDT base PPN
-    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_1LVL);
-    
-    write64(ddtp_addr, ddtp);
-}
-
-void set_ig_wsi()
-{
-    uint32_t fctl = (1UL << 1);
-    write32(fctl_addr, fctl);
-}
-
-void set_ig_msi()
-{
-    uint32_t fctl = (0UL << 1);
-    write32(fctl_addr, fctl);
 }

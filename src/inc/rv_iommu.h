@@ -3,6 +3,8 @@
 
 #include <iommu_tests.h>
 
+#define IOMMU_HPM_COUNTERS 8
+
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
 
@@ -93,5 +95,18 @@ void set_iommu_bare(void);
 void set_iommu_1lvl(void);
 void set_ig_wsi();
 void set_ig_msi();
+uint32_t rv_iommu_get_ipsr();
+void rv_iommu_clear_ipsr_fip();
+
+/** HPM-related functions */
+uint32_t rv_iommu_get_iocountovf();
+uint32_t rv_iommu_get_iocountihn();
+void rv_iommu_set_iocountihn(uint32_t iocountihn_new);
+uint64_t rv_iommu_get_iohpmcycles();
+void rv_iommu_set_iohpmcycles(uint64_t iohpmcycles_new);
+uint64_t rv_iommu_get_iohpmctr (size_t counter_idx);
+void rv_iommu_set_iohpmctr(uint64_t iohpmctr_new, size_t counter_idx);
+uint64_t rv_iommu_get_iohpmevt (size_t counter_idx);
+void rv_iommu_set_iohpmevt(uint64_t iohpmevt_new, size_t counter_idx);
 
 #endif  /* _RV_IOMMU_H_ */
