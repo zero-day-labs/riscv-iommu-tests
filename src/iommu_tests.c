@@ -7,6 +7,7 @@
 #include <hpm.h>
 #include <dbg_if.h>
 #include <rv_iommu.h>
+#include <plat_dma.h>
 #include <idma.h>
 
 /**
@@ -26,22 +27,6 @@
  *      in bare mode so we can write directly using physical addresses.
  */
 
-/**
- *  iDMA device IDs 
- */
-extern uint64_t idma_ids[];
-
-/**
- *  iDMA Configuration Registers
- */
-extern uintptr_t idma_src[];
-extern uintptr_t idma_dest[];
-extern uintptr_t idma_nbytes[];
-extern uintptr_t idma_config[];
-extern uintptr_t idma_status[];
-extern uintptr_t idma_nextid[];
-extern uintptr_t idma_done[];
-extern uintptr_t idma_ipsr[];
 
 /**
  *  IOMMU Memory-mapped registers 
@@ -106,6 +91,10 @@ bool idma_only(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
     uintptr_t read_paddr1 = phys_page_base(BARE_TRANS_R1);
@@ -126,10 +115,10 @@ bool idma_only(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    idma_setup(0, read_paddr1, write_paddr1, 8);
+    idma_setup(dma_ut, read_paddr1, write_paddr1, 8);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -138,19 +127,19 @@ bool idma_only(){
 
     if (IDMA_IRQ_EN)
     {
-        check1 = (read64(idma_ipsr[0]) == 3);
+        check1 = (read64((uintptr_t)&dma_ut->ipsr) == 3);
         TEST_ASSERT("iDMA interrupt pending bits set", check1);
 
-        write64(idma_ipsr[0], (uint64_t) 0x03);
+        write64((uintptr_t)&dma_ut->ipsr, (uint64_t) 0x03);
 
-        check1 = (read64(idma_ipsr[0]) == 0);
+        check1 = (read64((uintptr_t)&dma_ut->ipsr) == 0);
         TEST_ASSERT("iDMA interrupt pending bits cleared after writing 1", check1);
     }
 
     /*------------- SECOND TRANSFER --------------*/
-    idma_setup_addr(0, read_paddr2, write_paddr2);
+    idma_setup_addr(dma_ut, read_paddr2, write_paddr2);
 
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -172,6 +161,10 @@ bool idma_only_multiple_beats(){
 
     // Print the name of the test and create test_status variable
     TEST_START();
+    
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
@@ -203,10 +196,10 @@ bool idma_only_multiple_beats(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    idma_setup(0, start_raddr1, start_waddr1, 24);
+    idma_setup(dma_ut, start_raddr1, start_waddr1, 24);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -218,10 +211,10 @@ bool idma_only_multiple_beats(){
 
     /*------------- SECOND TRANSFER --------------*/
 
-    idma_setup_addr(0, start_raddr2, start_waddr2);
+    idma_setup_addr(dma_ut, start_raddr2, start_waddr2);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -250,13 +243,17 @@ bool iommu_off(){
     set_iommu_off();
     VERBOSE("IOMMU Off");
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     //# Get addresses
     uintptr_t read_vaddr1 = virt_page_base(IOMMU_OFF_R);
     uintptr_t write_vaddr1 = virt_page_base(IOMMU_OFF_W);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check fault record written in memory
@@ -299,6 +296,10 @@ bool iommu_bare(){
     set_iommu_bare();
     VERBOSE("IOMMU in Bare mode");
 
+    /** Map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     //# Get addresses
     uintptr_t start_raddr1 = phys_page_base(IOMMU_BARE_R);
     uintptr_t start_waddr1 = phys_page_base(IOMMU_BARE_W);
@@ -312,9 +313,10 @@ bool iommu_bare(){
     write64(start_waddr1 + 8 , 0x00);
     write64(start_waddr1 + 16, 0x00);
 
-    //# Config iDMA and init transfer
-    idma_setup(0, start_raddr1, start_waddr1, 24);
-    if (idma_exec_transfer(0) != 0)
+    //# Configure DMA
+    idma_setup(dma_ut, start_raddr1, start_waddr1, 24);
+    //# Initiate DMA transfer (only returns when transfer is done)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check transfer
@@ -333,6 +335,9 @@ bool iommu_bare(){
 bool both_stages_bare(){
 
     TEST_START();
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
@@ -354,8 +359,8 @@ bool both_stages_bare(){
     write64(write_paddr2, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_paddr1, write_paddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_paddr1, write_paddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -365,8 +370,8 @@ bool both_stages_bare(){
     /*------- SECOND TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_paddr2, write_paddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_paddr2, write_paddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -385,6 +390,9 @@ bool both_stages_bare(){
 bool second_stage_only(){
 
     TEST_START();
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
@@ -394,7 +402,7 @@ bool second_stage_only(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get addresses
     uintptr_t read_paddr1 = phys_page_base(S2_ONLY_R);
@@ -413,8 +421,8 @@ bool second_stage_only(){
     write64(write_paddr2, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -425,8 +433,8 @@ bool second_stage_only(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup(0, read_vaddr2, write_vaddr2, 4);
-        if (idma_exec_transfer(0) != 0)
+        idma_setup(dma_ut, read_vaddr2, write_vaddr2, 4);
+        if (idma_exec_transfer(dma_ut) != 0)
             {ERROR("iDMA misconfigured")}
 
         //# Check second transfer
@@ -450,6 +458,10 @@ bool two_stage_translation(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
@@ -458,7 +470,7 @@ bool two_stage_translation(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     uintptr_t read_paddr1 = phys_page_base(TWO_STAGE_R4K);
@@ -491,8 +503,8 @@ bool two_stage_translation(){
     write64(write_paddr4, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -502,8 +514,8 @@ bool two_stage_translation(){
     /*------- SECOND TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -513,8 +525,8 @@ bool two_stage_translation(){
     /*------- THIRD TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_vaddr3, write_vaddr3);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr3, write_vaddr3);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check third transfer
@@ -526,8 +538,8 @@ bool two_stage_translation(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup(0, read_vaddr4, write_vaddr4, 4);
-        if (idma_exec_transfer(0) != 0)
+        idma_setup(dma_ut, read_vaddr4, write_vaddr4, 4);
+        if (idma_exec_transfer(dma_ut) != 0)
             {ERROR("iDMA misconfigured")}
 
         //# Check fourth transfer
@@ -550,6 +562,10 @@ bool two_stage_translation(){
 bool iotinval(){
 
     TEST_START();
+
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
@@ -577,13 +593,13 @@ bool iotinval(){
     write64(write_paddr2, 0x00);
 
     //### FIRST TRANSFER
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //### SECOND TRANSFER
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
@@ -603,12 +619,12 @@ bool iotinval(){
     iotinval_vma(false, true, true, 0, 0xABC, 0xDEF);
 
     //### Perform previous transfers again
-    idma_setup_addr(0, read_vaddr1, write_vaddr1);  // first
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);  // second
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);  // second
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -628,12 +644,12 @@ bool iotinval(){
     iotinval_gvma(false, true, 0, 0xABC);
 
     //### Perform previous transfers again
-    idma_setup_addr(0, read_vaddr1, write_vaddr1);  // first
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);  // second
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);  // second
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -649,6 +665,10 @@ bool iotinval(){
 bool wsi_generation(){
 
     TEST_START();
+
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
@@ -671,8 +691,8 @@ bool wsi_generation(){
     write64(read_paddr1, 0x11);
     write64(write_paddr1, 0x00);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Check if ipsr.fip was set in case of error
@@ -767,6 +787,10 @@ bool msi_generation(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
@@ -782,8 +806,8 @@ bool msi_generation(){
     uintptr_t read_vaddr1 = virt_page_base(MSI_GEN_R);
     uintptr_t write_vaddr1 = virt_page_base(MSI_GEN_W);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
 
@@ -865,6 +889,10 @@ bool hpm(){
 
     // Print the name of the test and create test_status variable
     TEST_START();
+    
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
@@ -988,8 +1016,8 @@ bool hpm(){
     uintptr_t write_paddr1 = phys_page_base(HPM_W);
     uintptr_t write_vaddr1 = virt_page_base(HPM_W);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Check iohpmevt.OF
@@ -1036,6 +1064,10 @@ bool mrif_support(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     //# TEST 1: MRIF transaction with second-stage only and MSI notice write
     // Configure data structures and IOMMU
     fence_i();
@@ -1046,7 +1078,7 @@ bool mrif_support(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr1 = phys_page_base(MSI_R3);
@@ -1058,8 +1090,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_1, 0);
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1078,7 +1110,7 @@ bool mrif_support(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr2 = phys_page_base(MSI_R4);
@@ -1090,8 +1122,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_2, 0);
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr2, write_vaddr2, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr2, write_vaddr2, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1113,8 +1145,8 @@ bool mrif_support(){
     // No need to configure data in physical addresses as transfer will fail
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr3, write_vaddr3, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr3, write_vaddr3, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1142,8 +1174,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_1, 0);   // clear MSI notice
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1179,6 +1211,10 @@ bool dbg_interface(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     fence_i();
     set_iommu_1lvl();
     set_iosatp_sv39();
@@ -1199,7 +1235,7 @@ bool dbg_interface(){
     //# TEST 1: 4kiB translation
     // Setup translation
     dbg_set_iova(vaddr1);
-    dbg_set_did(idma_ids[0]);
+    dbg_set_did(idma_ids[idma_idx]);
     dbg_set_pv(false);
     dbg_set_rw(true);
     dbg_set_exe(false);
@@ -1296,6 +1332,10 @@ bool latency_test(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     uint64_t stamp_start = 0;
     uint64_t stamp_end = 0;
     uint64_t avg_lat = 0;
@@ -1306,7 +1346,7 @@ bool latency_test(){
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
 
-    ddt_inval(false, 0);
+    ddt_inval(false, idma_ids[idma_idx]);
     iotinval_vma(false, false, false, 0, 0, 0);
     iotinval_gvma(false, false, 0, 0);
 
@@ -1321,8 +1361,10 @@ bool latency_test(){
 
     for (size_t i = 0; i < N_TRANSFERS; i++)
     {
-        // Get random indexes
-        size_t dev_index = rand() % N_DMA;
+        /** Instantiate and map the DMA device */
+        size_t idma_idx = rand() % N_DMA;
+        struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
         size_t pt_index = rand() % N_MAPPINGS;
 
         //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
@@ -1337,22 +1379,19 @@ bool latency_test(){
         //# Write known values to memory
         write64(read_paddr, 0xDEADBEEF);
         write64(write_paddr, 0);
-
-        write64(idma_src[dev_index], (uint64_t)read_vaddr);     // Source address
-        write64(idma_dest[dev_index], (uint64_t)write_vaddr);   // Destination address
-        write64(idma_nbytes[dev_index], 8);                     // N of bytes to be transferred
-        write64(idma_config[dev_index], 0);                     // iDMA config: Disable decouple, deburst and serialize
+        
+        idma_setup(dma_ut, (uint64_t)read_vaddr, (uint64_t)write_vaddr, 8);
 
         // Start stamp
         stamp_start = CSRR(CSR_CYCLES);
 
         // Check if iDMA was set up properly and init transfer
-        uint64_t trans_id = read64(idma_nextid[dev_index]);
+        uint64_t trans_id = read64((uintptr_t)&dma_ut->next_transfer_id);
         if (!trans_id)
             {ERROR("iDMA misconfigured")}
 
         // Poll transfer status
-        while (read64(idma_done[dev_index]) != trans_id)
+        while (read64((uintptr_t)&dma_ut->last_transfer_id_complete) != trans_id)
             ;
 
         // End stamp

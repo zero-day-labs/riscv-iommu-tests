@@ -11,7 +11,6 @@
 #include <csrs.h>
 #include <instructions.h>
 #include <platform.h>
-#include <iommu.h>
 #include <rvh_test.h>
 
 #define PAGE_SIZE           0x1000ULL     // 4kiB
