@@ -5,7 +5,6 @@
 #include <msi_pts.h>
 #include <iommu_pts.h>
 #include <hpm.h>
-#include <dbg_if.h>
 #include <rv_iommu.h>
 #include <plat_dma.h>
 #include <idma.h>
@@ -1221,81 +1220,81 @@ bool dbg_interface(){
 
     //# TEST 1: 4kiB translation
     // Setup translation
-    dbg_set_iova(vaddr1);
-    dbg_set_did(idma_ids[idma_idx]);
-    dbg_set_pv(false);
-    dbg_set_rw(true);
-    dbg_set_exe(false);
-    dbg_set_priv(true);
+    rv_iommu_dbg_set_iova(vaddr1);
+    rv_iommu_dbg_set_did(idma_ids[idma_idx]);
+    rv_iommu_dbg_set_pv(false);
+    rv_iommu_dbg_set_rw(true);
+    rv_iommu_dbg_set_exe(false);
+    rv_iommu_dbg_set_priv(true);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    bool check = (!dbg_is_fault() && !dbg_is_superpage() &&
-                    (dbg_translated_ppn() == (paddr1 >> 12)));
+    bool check = (!rv_iommu_dbg_req_fault() && !rv_iommu_dbg_req_is_superpage() &&
+                    (rv_iommu_dbg_translated_ppn() == (paddr1 >> 12)));
     TEST_ASSERT("DBG IF: First transfer response matches", check);
 
     //# TEST 2: 2MiB translation
     // Setup translation
-    dbg_set_iova(vaddr2);
-    dbg_set_exe(true);
-    dbg_set_priv(false);
+    rv_iommu_dbg_set_iova(vaddr2);
+    rv_iommu_dbg_set_exe(true);
+    rv_iommu_dbg_set_priv(false);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() & (~0x0FFULL)) == (paddr2 >> 12)));
+    check = (!rv_iommu_dbg_req_fault() && rv_iommu_dbg_req_is_superpage() &&
+                    ((rv_iommu_dbg_translated_ppn() & (~0x0FFULL)) == (paddr2 >> 12)));
     TEST_ASSERT("DBG IF: Second transfer response matches", check);
 
     // Check PPN encoding
-    check = (dbg_ppn_encode_x() == (uint8_t)8);
+    check = (rv_iommu_dbg_ppn_encode_x() == (uint8_t)8);
     TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
 
     //# TEST 3: 1GiB translation
     // Setup translation
-    dbg_set_iova(vaddr3);
-    dbg_set_exe(false);
+    rv_iommu_dbg_set_iova(vaddr3);
+    rv_iommu_dbg_set_exe(false);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() & (~0x1FFFFULL)) == (paddr3 >> 12)));
+    check = (!rv_iommu_dbg_req_fault() && rv_iommu_dbg_req_is_superpage() &&
+                    ((rv_iommu_dbg_translated_ppn() & (~0x1FFFFULL)) == (paddr3 >> 12)));
     TEST_ASSERT("DBG IF: Third transfer response matches", check);
 
     // Check PPN encoding
-    check = (dbg_ppn_encode_x() == (uint8_t)17);
+    check = (rv_iommu_dbg_ppn_encode_x() == (uint8_t)17);
     TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
 
     //# TEST 4: MSI translation using DBG IF (Error propagation)
     // Setup translation
-    dbg_set_iova(vaddr4);
+    rv_iommu_dbg_set_iova(vaddr4);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (dbg_is_fault());
+    check = (rv_iommu_dbg_req_fault());
     TEST_ASSERT("DBG IF: Fourth transfer generates fault, as it triggers MSI translation", check);
 
     // Check fault

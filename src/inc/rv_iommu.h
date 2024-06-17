@@ -3,7 +3,7 @@
 
 #include <iommu_tests.h>
 
-#define IOMMU_HPM_COUNTERS 8
+#define IOMMU_MAX_HPM_COUNTERS 31
 
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
@@ -108,5 +108,19 @@ uint64_t rv_iommu_get_iohpmctr (size_t counter_idx);
 void rv_iommu_set_iohpmctr(uint64_t iohpmctr_new, size_t counter_idx);
 uint64_t rv_iommu_get_iohpmevt (size_t counter_idx);
 void rv_iommu_set_iohpmevt(uint64_t iohpmevt_new, size_t counter_idx);
+
+/** Debug interface */
+void rv_iommu_dbg_set_iova(uint64_t iova);
+void rv_iommu_dbg_set_did(uint64_t device_id);
+void rv_iommu_dbg_set_pv(bool pv);
+void rv_iommu_dbg_set_priv(bool priv);
+void rv_iommu_dbg_set_rw(bool rw);
+void rv_iommu_dbg_set_exe(bool exe);
+void rv_iommu_dbg_set_go(void);
+bool rv_iommu_dbg_req_is_complete(void);
+uint8_t rv_iommu_dbg_req_fault(void);
+uint8_t rv_iommu_dbg_req_is_superpage(void);
+uint64_t rv_iommu_dbg_translated_ppn(void);
+uint8_t rv_iommu_dbg_ppn_encode_x(void);
 
 #endif  /* _RV_IOMMU_H_ */

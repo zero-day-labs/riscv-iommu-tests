@@ -7,6 +7,28 @@
 #include <iommu_pts.h>
 #include <hpm.h>
 
+#define TR_REQ_CTL_DID_OFFSET   40
+#define TR_REQ_CTL_DID_MASK     0xFFFFFF0000000000ULL
+#define TR_REQ_CTL_PID_OFFSET   12
+#define TR_REQ_CTL_PID_MASK     0xFFFFF000ULL
+#define TR_REQ_CTL_PV_BIT       (1ULL << 32)
+
+#define TR_REQ_CTL_GO_BIT       (1ULL << 0)
+#define TR_REQ_CTL_PRIV_BIT     (1ULL << 1)
+#define TR_REQ_CTL_EXE_BIT      (1ULL << 2)
+#define TR_REQ_CTL_NW_BIT       (1ULL << 3)
+
+#define TR_RESPONSE_FAULT_BIT   (1ULL << 0)
+#define TR_RESPONSE_SP_BIT      (1ULL << 9)
+#define TR_RESPONSE_PPN_OFFSET  (10)
+#define TR_RESPONSE_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+
+typedef struct debug {
+  uint64_t tr_req_iova; // translation-request IOVA
+  uint64_t tr_req_ctl;  // translation-request control
+  uint64_t tr_response; // translation-request response
+} iommu_debug_t;
+
 typedef struct iommu {
   uint64_t capabilities;// IOMMU implemented capabilities
   uint32_t fctl;        // features control
@@ -28,8 +50,13 @@ typedef struct iommu {
   uint32_t iocntovf;    // hpm counter overflows
   uint32_t iocntinh;    // hpm counter inhibits
   uint64_t iohpmcycles; // hpm cycles counter
-  uint64_t iohpmctr[IOMMU_HPM_COUNTERS]; // hpm event counters
-  uint64_t iohpmevt[IOMMU_HPM_COUNTERS]; // hpm event selector
+  uint64_t iohpmctr[IOMMU_MAX_HPM_COUNTERS]; // hpm event counters
+  uint64_t iohpmevt[IOMMU_MAX_HPM_COUNTERS]; // hpm event selector
+  iommu_debug_t debug_inf; // IOMMU debug interface
+  uint64_t reserved[8]; // reserved for future use
+  uint64_t custom[9];   // designated for costum use
+  uint64_t icvec;       // interrupt cause to interrupt vector
+
 }__attribute__((__packed__, aligned(PAGE_SIZE))) iommu_t;
 
 /** IOMMU structure only visible inside IOMMU driver */
@@ -38,17 +65,15 @@ static iommu_t *iommu = (void*)IOMMU_BASE_ADDR;
 /**
  *  IOMMU Memory-mapped registers 
  */
-
-// icvec
-uintptr_t icvec_addr = IOMMU_REG_ADDR(IOMMU_ICVEC_OFFSET);
-
 // MSI Cfg table
 uintptr_t msi_addr_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_3_OFFSET);
 uintptr_t msi_data_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_3_OFFSET);
 uintptr_t msi_vec_ctl_cq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_3_OFFSET);
+
 uintptr_t msi_addr_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_2_OFFSET);
 uintptr_t msi_data_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_2_OFFSET);
 uintptr_t msi_vec_ctl_fq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_2_OFFSET);
+
 uintptr_t msi_addr_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_1_OFFSET);
 uintptr_t msi_data_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_1_OFFSET);
 uintptr_t msi_vec_ctl_hpm_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_1_OFFSET);
@@ -170,6 +195,129 @@ void rv_iommu_set_iohpmevt(uint64_t iohpmevt_new, size_t counter_idx)
     return write64((uintptr_t)&iommu->iohpmevt[counter_idx], iohpmevt_new);
 }
 
+void rv_iommu_set_icvec(uint64_t icvec_new)
+{
+    return write64((uintptr_t)&iommu->icvec, icvec_new);
+}
+
+void rv_iommu_dbg_set_iova(uint64_t iova)
+{
+    write64((uintptr_t)&iommu->debug_inf.tr_req_iova, (iova & ~0xFFFULL));
+}
+
+static inline uint64_t rv_iommu_dbg_get_ctl()
+{
+    return read64((uintptr_t)&iommu->debug_inf.tr_req_ctl);
+}
+
+static inline uint64_t rv_iommu_dbg_get_response()
+{
+    return read64((uintptr_t)&iommu->debug_inf.tr_response);
+}
+
+void rv_iommu_dbg_set_did(uint64_t device_id)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    ctl_tmp |= ((device_id << TR_REQ_CTL_DID_OFFSET) & TR_REQ_CTL_DID_MASK);
+
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+};
+
+void rv_iommu_dbg_set_pv(bool pv)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    if (pv){
+        ctl_tmp |= TR_REQ_CTL_PV_BIT;
+    } else {
+        ctl_tmp &= (~TR_REQ_CTL_PV_BIT);
+    }
+
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+};
+
+void rv_iommu_dbg_set_priv(bool priv)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    if (priv){
+        ctl_tmp |= TR_REQ_CTL_PRIV_BIT;
+    } else {
+        ctl_tmp &= (~TR_REQ_CTL_PRIV_BIT);
+    }
+
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+};
+
+void rv_iommu_dbg_set_rw(bool rw)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    if (rw){
+        ctl_tmp &= (~TR_REQ_CTL_NW_BIT);
+    } else {
+        ctl_tmp |= TR_REQ_CTL_NW_BIT;
+    }
+
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+};
+
+void rv_iommu_dbg_set_exe(bool exe)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    if (exe){
+        ctl_tmp |= TR_REQ_CTL_EXE_BIT;
+    } else {
+        ctl_tmp &= (~TR_REQ_CTL_EXE_BIT);
+    }
+
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+};
+
+void rv_iommu_dbg_set_go(void)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    ctl_tmp |= TR_REQ_CTL_GO_BIT;
+    write64((uintptr_t)&iommu->debug_inf.tr_req_ctl, ctl_tmp);
+}
+
+bool rv_iommu_dbg_req_is_complete(void)
+{
+    uint64_t ctl_tmp = rv_iommu_dbg_get_ctl();
+    
+    return ((ctl_tmp & TR_REQ_CTL_GO_BIT != 0) ? (false) : (true));
+}
+
+uint8_t rv_iommu_dbg_req_fault(void)
+{
+    uint64_t resp_tmp = rv_iommu_dbg_get_response();
+    return (uint8_t)(resp_tmp & TR_RESPONSE_FAULT_BIT);
+}
+
+uint8_t rv_iommu_dbg_req_is_superpage(void)
+{
+    uint64_t resp_tmp = rv_iommu_dbg_get_response();
+    return (uint8_t)((resp_tmp & TR_RESPONSE_SP_BIT) >> 9);
+}
+
+uint64_t rv_iommu_dbg_translated_ppn(void)
+{
+    uint64_t resp_tmp = rv_iommu_dbg_get_response();
+    return ((resp_tmp & TR_RESPONSE_PPN_MASK) >> TR_RESPONSE_PPN_OFFSET);
+}
+
+uint8_t rv_iommu_dbg_ppn_encode_x(void)
+{
+    uint64_t resp_tmp = rv_iommu_dbg_get_response();
+    uint8_t bit = 0, x_idx = 0;
+
+    uint64_t ppn = (resp_tmp & TR_RESPONSE_PPN_MASK) >> TR_RESPONSE_PPN_OFFSET;
+    while ((bit = (uint8_t)(ppn & 0x01ULL)) != 0)
+    {
+        ppn = (ppn >> 1);
+        x_idx++;
+    }
+    
+    return x_idx;
+}
+
 /**
  *  Configure:
  *      - CQ, FQ, S1 and S2 page tables, MSI page tables
@@ -276,7 +424,7 @@ void init_iommu()
     //# Setup icvec register with an interrupt vector for each cause
     INFO("Setting up interrupt vectors");
     uint64_t icvec = (HPM_INT_VECTOR << 8) | (FQ_INT_VECTOR << 4) | (CQ_INT_VECTOR << 0);
-    write64(icvec_addr, icvec);
+    rv_iommu_set_icvec(icvec);
 
     //# Configure HPM
     INFO("Configuring HPM");
