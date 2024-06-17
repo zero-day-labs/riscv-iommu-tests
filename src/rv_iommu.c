@@ -1,9 +1,7 @@
 #include <rv_iommu.h>
 #include <iommu_tests.h>
-#include <device_contexts.h>
 #include <msi_pts.h>
 #include <iommu_pts.h>
-#include <hpm.h>
 
 #define TR_REQ_CTL_DID_OFFSET   40
 #define TR_REQ_CTL_DID_MASK     0xFFFFFF0000000000ULL
@@ -96,10 +94,115 @@ uint32_t msi_data_hpm     = 0xDEADBEEFUL;
 uint32_t msi_vec_ctl_hpm  = 0x0UL;
 
 // DDT
-extern ddt_t root_ddt[];
+ddt_t root_ddt[DDT_N_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
 
 typedef uint64_t command_t[2];
 
+// First and second-stage page tables (Already configured)
+extern pte_t s1pt[][512];
+extern pte_t s2pt_root[];
+// MSI page tables (Configured in msi_pts.c)
+extern uint64_t msi_pt[];
+
+/*******************************************************************************************************
+*                                   Command-Queue Related Functions                                    *
+*******************************************************************************************************/
+
+static void rv_iommu_ddt_init(void)
+{
+    // Init all entries to zero
+    for (int i = 0; i < DDT_N_ENTRIES; i++)
+    {
+        root_ddt[i].tc = 0;
+    }
+
+    // Configure DCs in the root DDT (1LVL mode)
+    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    {
+        root_ddt[i].tc = test_dc_tc_table[BASIC];
+        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
+        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
+        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
+        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
+
+        if (MSI_TRANSLATION == 1)
+        {
+            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
+            root_ddt[i].msi_addr_mask = MSI_ADDR_MASK;
+            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
+            root_ddt[i].reserved = 0;
+        }
+    }
+}
+
+void rv_iommu_set_iosatp_bare(void)
+{
+    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    {
+        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
+        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
+    }
+}
+
+void rv_iommu_set_iosatp_sv39()
+{
+    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    {
+        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
+        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_SV39);
+    }
+}
+
+void rv_iommu_set_iohgatp_bare()
+{
+    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    {
+        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
+        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
+    }
+}
+
+void rv_iommu_set_iohgatp_sv39x4()
+{
+    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    {
+        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);
+        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
+    }
+}
+
+void rv_iommu_set_msi_off()
+{
+    if (MSI_TRANSLATION == 1)
+    {
+        for (int i = DID_MIN; i < DID_MAX + 1; i++)
+        {
+            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
+            root_ddt[i].msi_addr_mask = MSI_ADDR_MASK;
+            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
+        }
+    }
+}
+
+void rv_iommu_set_msi_flat()
+{
+    if (MSI_TRANSLATION == 1)
+    {
+        for (int i = DID_MIN; i < DID_MAX + 1; i++)
+        {
+            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);
+            root_ddt[i].msi_addr_pattern = MSI_ADDR_MASK;
+            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
+        }
+    }
+}
+
+/*******************************************************************************************************
+*******************************************************************************************************/
+
+/*******************************************************************************************************
+*                                   Command-Queue Related Functions                                    *
+*******************************************************************************************************/
 static inline void rv_iommu_write_command_in_queue(command_t new_cmd)
 {
     uint32_t cqt = read32((uintptr_t)&iommu->cqt);
@@ -263,6 +366,8 @@ static void rv_iommu_fq_init(void)
     // Poll fqcsr.fqon until it reads 1
     while (!(read32((uintptr_t)&iommu->fqcsr) & FQCSR_FQON));
 }
+/*******************************************************************************************************
+*******************************************************************************************************/
 
 int rv_iommu_fq_read_record(uint64_t *buf)
 {
@@ -589,7 +694,7 @@ void init_iommu()
     // Define an MSI address mask of 5 bits set for the DC.
     // Define an MSI address pattern for the DC, following the format defined in the mask.
     INFO("Configuring DDT");
-    ddt_init();
+    rv_iommu_ddt_init();
     set_iommu_off();
 
     //# Configure MSI Config Table

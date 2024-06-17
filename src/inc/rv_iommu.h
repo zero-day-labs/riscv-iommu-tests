@@ -3,6 +3,8 @@
 
 #include <rv_iommu_cq.h>
 #include <rv_iommu_fq.h>
+#include <rv_iommu_dc.h>
+#include <rv_iommu_hpm.h>
 #include <iommu_tests.h>
 
 #define IOMMU_MAX_HPM_COUNTERS 31
@@ -111,6 +113,13 @@ void set_ig_wsi();
 void set_ig_msi();
 uint32_t rv_iommu_get_ipsr();
 void rv_iommu_clear_ipsr_fip();
+
+/** Device Context Related Functions*/
+void rv_iommu_set_iosatp_sv39(void);
+void rv_iommu_set_iohgatp_sv39x4(void);
+void rv_iommu_set_iosatp_bare(void);
+void rv_iommu_set_iohgatp_bare(void);
+void rv_iommu_set_msi_flat(void);
 
 /** HPM-related functions */
 uint32_t rv_iommu_get_iocountovf();

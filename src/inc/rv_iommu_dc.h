@@ -77,13 +77,8 @@ enum test_dc {
     TEST_DC_MAX
 };
 
-extern ddt_t root_ddt[];
-
-void ddt_init(void);
-void set_iosatp_sv39(void);
-void set_iohgatp_sv39x4(void);
-void set_iosatp_bare(void);
-void set_iohgatp_bare(void);
-void set_msi_flat(void);
+extern uint64_t test_dc_tc_table[];
+extern uint64_t GSCID_ARRAY[];
+extern uint64_t PSCID_ARRAY[];
 
 #endif  /* DEVICE_CONTEXTS_H */

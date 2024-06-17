@@ -1,8 +1,6 @@
 #include <iommu_tests.h>
-#include <device_contexts.h>
 #include <msi_pts.h>
 #include <iommu_pts.h>
-#include <hpm.h>
 #include <rv_iommu.h>
 #include <plat_dma.h>
 #include <idma.h>
@@ -313,8 +311,8 @@ bool both_stages_bare(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_bare();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_bare();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Bare | iosatp: Bare");
 
     //# Get addresses
@@ -368,9 +366,9 @@ bool second_stage_only(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     //# DDTC Invalidation
@@ -436,9 +434,9 @@ bool two_stage_translation(){
     
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# DDTC Invalidation
@@ -541,9 +539,9 @@ bool iotinval(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
@@ -644,9 +642,9 @@ bool wsi_generation(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Configure the IOMMU to generate interrupts as WSI
@@ -764,9 +762,9 @@ bool msi_generation(){
     
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
     VERBOSE("CQ interrupt vector masked");
 
@@ -845,9 +843,9 @@ bool hpm(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // Flush cache
@@ -1018,9 +1016,9 @@ bool mrif_support(){
     // Configure data structures and IOMMU
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     // DDTC Invalidation
@@ -1052,7 +1050,7 @@ bool mrif_support(){
 
     //# TEST 2: MRIF transaction with two-stage and IE disabled (no MSI notice)
     // Enable first-stage translation
-    set_iosatp_sv39();
+    rv_iommu_set_iosatp_sv39();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // DDTC Invalidation
@@ -1163,9 +1161,9 @@ bool dbg_interface(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // Get virtual addresses
@@ -1289,8 +1287,8 @@ bool latency_test(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
 
     rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
     rv_iommu_iotinval_vma(false, false, false, 0, 0, 0);
