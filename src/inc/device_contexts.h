@@ -7,10 +7,26 @@
 // Number of entries of the root DDT (4-kiB / 64 bytes p/ entry)
 #if (MSI_TRANSLATION == 1)
 # define DDT_N_ENTRIES      (0x1000 / 64)   // 64 entries
-# define DC_SIZE            (8)
+typedef struct ddt{
+    uint64_t tc;                // translation control
+    uint64_t iohgatp;           // IO hypervisor guest address translation and protection
+    uint64_t ta;                // translation attributes
+    uint64_t fsc;               // first-stage context
+    uint64_t msiptp;            // MSI page-table pointer
+    uint64_t msi_addr_mask;     // MSI address mask
+    uint64_t msi_addr_pattern;  // MSI address pattern
+    uint64_t reserved;
+}ddt_t;
+#define DC_SIZE (8)
 #else
 # define DDT_N_ENTRIES      (0x1000 / 32)   // 128 entries
 # define DC_SIZE            (4)
+typedef struct ddt{
+    uint64_t tc; // translation control
+    uint64_t iohgatp; // IO hypervisor guest address translation and protection
+    uint64_t ta; // translation attributes
+    uint64_t fsc; // first-stage context
+}ddt_t;
 #endif
 
 // iosatp encoding to configure DC.fsc
@@ -60,6 +76,8 @@ enum test_dc {
     DC_TOP = (DDT_N_ENTRIES-1),
     TEST_DC_MAX
 };
+
+extern ddt_t root_ddt[];
 
 void ddt_init(void);
 void set_iosatp_sv39(void);

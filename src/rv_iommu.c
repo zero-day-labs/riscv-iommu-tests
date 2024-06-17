@@ -96,7 +96,7 @@ uint32_t msi_data_hpm     = 0xDEADBEEFUL;
 uint32_t msi_vec_ctl_hpm  = 0x0UL;
 
 // DDT
-extern uint64_t root_ddt[];
+extern ddt_t root_ddt[];
 
 typedef uint64_t command_t[2];
 
