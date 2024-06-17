@@ -22,30 +22,6 @@
  *      in bare mode so we can write directly using physical addresses.
  */
 
-
-/**
- *  IOMMU Memory-mapped registers 
- */
-
-// MSI Cfg table
-extern uintptr_t msi_addr_cq_addr;
-extern uintptr_t msi_data_cq_addr;
-extern uintptr_t msi_vec_ctl_cq_addr;
-extern uintptr_t msi_addr_fq_addr;
-extern uintptr_t msi_data_fq_addr;
-extern uintptr_t msi_vec_ctl_fq_addr;
-extern uintptr_t msi_addr_hpm_addr;
-extern uintptr_t msi_data_hpm_addr;
-extern uintptr_t msi_vec_ctl_hpm_addr;
-
-// MSI Cfg table data
-extern uint64_t msi_addr_cq;
-extern uint64_t msi_addr_fq;
-extern uint64_t msi_addr_hpm;
-extern uint32_t msi_data_cq;
-extern uint32_t msi_data_fq;
-extern uint32_t msi_data_hpm;
-
 // MRIF
 extern uint64_t mrif[];
 
@@ -796,8 +772,8 @@ bool msi_generation(){
     TEST_ASSERT("ipsr.cip and ipsr.fip were set", check);
 
     // Check data for FQ vector
-    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_fq);
-    check = (fq_msi_data == msi_data_fq);
+    uint32_t fq_msi_data = read32((uintptr_t)MSI_ADDR_FQ);
+    check = (fq_msi_data == MSI_DATA_FQ);
     TEST_ASSERT("MSI data corresponding to FQ interrupt vector matches", check);
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
@@ -805,14 +781,14 @@ bool msi_generation(){
     rv_iommu_clear_ipsr_fip();
 
     // Clear mask of CQ interrupt vector
-    write32(msi_vec_ctl_cq_addr, 0x0UL);
+    rv_iommu_set_msi_cfg_tbl_vctl(3, 0x0UL);
 
     // Flush cache
     fence_i();
 
     // Check data for CQ vector after clearing mask
-    uint32_t cq_msi_data = read32((uintptr_t)msi_addr_cq);
-    check = (cq_msi_data == msi_data_cq);
+    uint32_t cq_msi_data = read32((uintptr_t)MSI_ADDR_CQ);
+    check = (cq_msi_data == MSI_DATA_CQ);
     TEST_ASSERT("MSI data corresponding to CQ interrupt vector matches after clearing mask", check);
 
     // Discard fault records written in memory
@@ -929,8 +905,8 @@ bool hpm(){
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Check data for HPM vector
-    uint32_t hpm_msi_data = read32((uintptr_t)msi_addr_hpm);
-    check = (hpm_msi_data == msi_data_hpm);
+    uint32_t hpm_msi_data = read32((uintptr_t)MSI_ADDR_HPM);
+    check = (hpm_msi_data == MSI_DATA_HPM);
     TEST_ASSERT("MSI data corresponding to HPM interrupt vector matches", check);
 
     // Clear ipsr

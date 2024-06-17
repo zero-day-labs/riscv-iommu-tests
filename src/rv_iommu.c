@@ -19,11 +19,19 @@
 #define TR_RESPONSE_PPN_OFFSET  (10)
 #define TR_RESPONSE_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
 
+#define IOMMU_MAX_MSI_CFG_TABLE 16
+
 typedef struct debug {
   uint64_t tr_req_iova; // translation-request IOVA
   uint64_t tr_req_ctl;  // translation-request control
   uint64_t tr_response; // translation-request response
 } iommu_debug_t;
+
+typedef struct msi_cfg_table_t {
+  uint64_t addr;
+  uint32_t data;
+  uint32_t vctl;
+} iommu_msi_cfg_table_t;
 
 typedef struct iommu {
   uint64_t capabilities;// IOMMU implemented capabilities
@@ -52,8 +60,10 @@ typedef struct iommu {
   uint64_t reserved[8]; // reserved for future use
   uint64_t custom[9];   // designated for costum use
   uint64_t icvec;       // interrupt cause to interrupt vector
-
+  iommu_msi_cfg_table_t msi_cfg_tbl[IOMMU_MAX_MSI_CFG_TABLE]; 
 }__attribute__((__packed__, aligned(PAGE_SIZE))) iommu_t;
+
+typedef uint64_t command_t[2];
 
 /** IOMMU hw structure only visible inside IOMMU driver */
 static iommu_t *iommu = (void*)IOMMU_BASE_ADDR;
@@ -64,45 +74,37 @@ uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((align
 // N_entries * 32 bytes
 uint64_t fault_queue[FQ_N_ENTRIES * 4 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
 
-/**
- *  IOMMU Memory-mapped registers 
- */
-// MSI Cfg table
-uintptr_t msi_addr_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_3_OFFSET);
-uintptr_t msi_data_cq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_3_OFFSET);
-uintptr_t msi_vec_ctl_cq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_3_OFFSET);
-
-uintptr_t msi_addr_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_2_OFFSET);
-uintptr_t msi_data_fq_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_2_OFFSET);
-uintptr_t msi_vec_ctl_fq_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_2_OFFSET);
-
-uintptr_t msi_addr_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_ADDR_1_OFFSET);
-uintptr_t msi_data_hpm_addr       = IOMMU_REG_ADDR(IOMMU_MSI_DATA_1_OFFSET);
-uintptr_t msi_vec_ctl_hpm_addr    = IOMMU_REG_ADDR(IOMMU_MSI_VEC_CTL_1_OFFSET);
-
-// MSI Cfg table data
-uint64_t msi_addr_cq     = 0x83000000ULL;
-uint32_t msi_data_cq     = 0x00ABCDEFUL;
-uint32_t msi_vec_ctl_cq  = 0x1UL;
-
-uint64_t msi_addr_fq     = 0x83001000ULL;
-uint32_t msi_data_fq     = 0xFEDCBA00UL;
-uint32_t msi_vec_ctl_fq  = 0x0UL;
-
-uint64_t msi_addr_hpm     = 0x83002000ULL;
-uint32_t msi_data_hpm     = 0xDEADBEEFUL;
-uint32_t msi_vec_ctl_hpm  = 0x0UL;
-
 // DDT
 ddt_t root_ddt[DDT_N_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
-
-typedef uint64_t command_t[2];
 
 // First and second-stage page tables (Already configured)
 extern pte_t s1pt[][512];
 extern pte_t s2pt_root[];
 // MSI page tables (Configured in msi_pts.c)
 extern uint64_t msi_pt[];
+
+/*******************************************************************************************************
+*                                   MSI Config Table Related Functions                                 *
+*******************************************************************************************************/
+static inline void rv_iommu_set_msi_cfg_tbl_addr(size_t msi_tlb_entry, uint64_t new_addr)
+{
+    write64((uintptr_t)&iommu->msi_cfg_tbl[msi_tlb_entry].addr, new_addr);
+}
+
+uint64_t rv_iommu_get_msi_cfg_tbl_addr(size_t msi_tlb_entry)
+{
+    read64((uintptr_t)&iommu->msi_cfg_tbl[msi_tlb_entry].addr);
+}
+
+static inline void rv_iommu_set_msi_cfg_tbl_data(size_t msi_tlb_entry, uint32_t new_data)
+{
+    write32((uintptr_t)&iommu->msi_cfg_tbl[msi_tlb_entry].data, new_data);
+}
+
+void rv_iommu_set_msi_cfg_tbl_vctl(size_t msi_tlb_entry, uint32_t new_vctl)
+{
+    write32((uintptr_t)&iommu->msi_cfg_tbl[msi_tlb_entry].vctl, new_vctl);
+}
 
 /*******************************************************************************************************
 *                                   Command-Queue Related Functions                                    *
@@ -698,21 +700,24 @@ void init_iommu()
     set_iommu_off();
 
     //# Configure MSI Config Table
-    INFO("Configuring MSI config table");
+    INFO("Configuring IOMMU interrupts: MSI config table");
     // CQ
-    write64(msi_addr_cq_addr,    msi_addr_cq);
-    write32(msi_data_cq_addr,    msi_data_cq);
-    write32(msi_vec_ctl_cq_addr, msi_vec_ctl_cq);
+    INFO("Configuring IOMMU CQ interrupt");
+    rv_iommu_set_msi_cfg_tbl_addr(CQ_INT_VECTOR, MSI_ADDR_CQ);
+    rv_iommu_set_msi_cfg_tbl_data(CQ_INT_VECTOR, MSI_DATA_CQ);
+    rv_iommu_set_msi_cfg_tbl_vctl(CQ_INT_VECTOR, MSI_VCTL_CQ);
 
     // FQ
-    write64(msi_addr_fq_addr,    msi_addr_fq);
-    write32(msi_data_fq_addr,    msi_data_fq);
-    write32(msi_vec_ctl_fq_addr, msi_vec_ctl_fq);
+    INFO("Configuring IOMMU FQ interrupt");
+    rv_iommu_set_msi_cfg_tbl_addr(FQ_INT_VECTOR, MSI_ADDR_FQ);
+    rv_iommu_set_msi_cfg_tbl_data(FQ_INT_VECTOR, MSI_DATA_FQ);
+    rv_iommu_set_msi_cfg_tbl_vctl(FQ_INT_VECTOR, MSI_VCTL_FQ);
 
     // HPM
-    write64(msi_addr_hpm_addr,    msi_addr_hpm);
-    write32(msi_data_hpm_addr,    msi_data_hpm);
-    write32(msi_vec_ctl_hpm_addr, msi_vec_ctl_hpm);
+    INFO("Configuring IOMMU HPM interrupt");
+    rv_iommu_set_msi_cfg_tbl_addr(HPM_INT_VECTOR, MSI_ADDR_HPM);
+    rv_iommu_set_msi_cfg_tbl_data(HPM_INT_VECTOR, MSI_DATA_HPM);
+    rv_iommu_set_msi_cfg_tbl_vctl(HPM_INT_VECTOR, MSI_VCTL_HPM);
 
     INFO("Configuring IGS to WSI");
     //# Configure the IOMMU to generate interrupts as WSI by default

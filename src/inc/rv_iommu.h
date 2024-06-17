@@ -104,6 +104,19 @@
 
 #define IOFENCE_DATA    (0xABCDEFUL)
 
+#define MSI_ADDR_CQ   (0x83000000ULL)
+#define MSI_DATA_CQ   (0x00ABCDEFUL)
+/** we start CQ with vctl set to test if the interrupt is correctly blocked */
+#define MSI_VCTL_CQ   (0x1UL)
+
+#define MSI_ADDR_FQ   (0x83001000ULL)
+#define MSI_DATA_FQ   (0xFEDCBA00UL)
+#define MSI_VCTL_FQ   (0x0UL)
+
+#define MSI_ADDR_HPM   (0x83002000ULL)
+#define MSI_DATA_HPM   (0xDEADBEEFUL)
+#define MSI_VCTL_HPM   (0x0UL)
+
 void init_iommu(void);
 
 void set_iommu_off(void);
@@ -113,6 +126,9 @@ void set_ig_wsi();
 void set_ig_msi();
 uint32_t rv_iommu_get_ipsr();
 void rv_iommu_clear_ipsr_fip();
+
+/** MSI config table related functions */
+void rv_iommu_set_msi_cfg_tbl_vctl(size_t msi_tlb_entry, uint32_t new_vctl);
 
 /** Device Context Related Functions*/
 void rv_iommu_set_iosatp_sv39(void);
