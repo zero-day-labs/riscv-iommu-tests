@@ -1,5 +1,4 @@
 #include <iommu_tests.h>
-#include <command_queue.h>
 #include <fault_queue.h>
 #include <device_contexts.h>
 #include <msi_pts.h>
@@ -33,18 +32,10 @@
 // fctl
 extern uintptr_t fctl_addr;
 
-// CQ
-extern uintptr_t cqcsr_addr;
-extern uintptr_t cqb_addr;
-extern uintptr_t cqh_addr;
-extern uintptr_t cqt_addr;
 
 // FQ
 extern uintptr_t fqb_addr;
 extern uintptr_t fqh_addr;
-
-// icvec
-extern uintptr_t icvec_addr;
 
 // MSI Cfg table
 extern uintptr_t msi_addr_cq_addr;
@@ -391,7 +382,7 @@ bool second_stage_only(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get addresses
     uintptr_t read_paddr1 = phys_page_base(S2_ONLY_R);
@@ -459,7 +450,7 @@ bool two_stage_translation(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     uintptr_t read_paddr1 = phys_page_base(TWO_STAGE_R4K);
@@ -605,7 +596,7 @@ bool iotinval(){
     fence_i();
 
     //### IOTINVAL.VMA
-    iotinval_vma(false, true, true, 0, 0xABC, 0xDEF);
+    rv_iommu_iotinval_vma(false, true, true, 0, 0xABC, 0xDEF);
 
     //### Perform previous transfers again
     idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
@@ -630,7 +621,7 @@ bool iotinval(){
     fence_i();
 
     //### IOTINVAL.GVMA
-    iotinval_gvma(false, true, 0, 0xABC);
+    rv_iommu_iotinval_gvma(false, true, 0, 0xABC);
 
     //### Perform previous transfers again
     idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
@@ -733,20 +724,20 @@ bool iofence(){
     fence_i();
     set_iommu_1lvl();
 
-    uint32_t cqh = read32(cqh_addr);
+    uint32_t cqh = rv_iommu_get_cqh();
 
     //# Send command
-    iofence_c(true, true, IOFENCE_ADDR, IOFENCE_DATA);
+    rv_iommu_iofence_c(true, true);
 
     // Flush cache
     fence_i();
 
-    uint32_t cqh_inc = read32(cqh_addr);
+    uint32_t cqh_inc = rv_iommu_get_cqh();
     bool check = (cqh_inc == (cqh + 1));
     TEST_ASSERT("cqh was incremented", check);
 
     // Check whether cqcsr.fence_w_ip was set
-    uint32_t cqcsr = read32(cqcsr_addr);
+    uint32_t cqcsr = rv_iommu_get_cqcsr();
     check = ((cqcsr & CQCSR_FENCE_W_IP) != 0);
     TEST_ASSERT("cqcsr.fence_w_ip was set", check);
 
@@ -755,13 +746,12 @@ bool iofence(){
     TEST_ASSERT("ipsr.cip setting on IOFENCE completion", check);
 
     // Check if data was correctly written in memory for AV = 1
-    uintptr_t iofence_addr = IOFENCE_ADDR;
-    uint32_t iofence_data = read32(iofence_addr);
+    uint32_t iofence_data = rv_iommu_get_iofence();
     check = (iofence_data == IOFENCE_DATA);
     TEST_ASSERT("IOFENCE DATA was correctly written in the given ADDR", check);
 
     // Clear cqcsr.fence_w_ip and ipsr
-    write32(cqcsr_addr, cqcsr);
+    rv_iommu_set_cqcsr(cqcsr);
     rv_iommu_clear_ipsr_fip();
 
     TEST_END();
@@ -800,36 +790,14 @@ bool msi_generation(){
         {ERROR("iDMA misconfigured")}
 
 
-    //# Induce a fault in the CQ
-    uint64_t cmd_entry[2];
-    cmd_entry[0]    = IOTINVAL | GVMA;
-
-    // Add PSCID (invalid for IOTINVAL.GVMA)
-    cmd_entry[0]    |= IOTINVAL_PSCV;
-
-    cmd_entry[1]    = 0;
-
-    // Read cqt
-    uint64_t cqt = read32(cqt_addr);
-
-    // Get address of the next entry to write in the CQ
-    uint64_t cqb = read64(cqb_addr);
-    uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
-
-    // Write command to memory
-    write64(cq_entry_base, cmd_entry[0]);
-    write64(cq_entry_base + 8, cmd_entry[1]);
-
-    // Increment tail reg
-    cqt++;
-    write32(cqt_addr, cqt);
+    rv_iommu_induce_fault_cq();
 
     // Flush cache
     fence_i();
 
     //# Checks
     // Check whether cqcsr.cmd_ill was set
-    uint32_t cqcsr = read32(cqcsr_addr);
+    uint32_t cqcsr = rv_iommu_get_cqcsr();
     bool check = ((cqcsr & CQCSR_CMD_ILL) != 0);
     TEST_ASSERT("cqcsr.cmd_ill was set", check);
 
@@ -843,7 +811,7 @@ bool msi_generation(){
     TEST_ASSERT("MSI data corresponding to FQ interrupt vector matches", check);
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
-    write32(cqcsr_addr, cqcsr);
+    rv_iommu_set_cqcsr(cqcsr);
     rv_iommu_clear_ipsr_fip();
 
     // Clear mask of CQ interrupt vector
@@ -1064,7 +1032,7 @@ bool mrif_support(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr1 = phys_page_base(MSI_R3);
@@ -1096,7 +1064,7 @@ bool mrif_support(){
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr2 = phys_page_base(MSI_R4);
@@ -1332,9 +1300,9 @@ bool latency_test(){
     set_iosatp_sv39();
     set_iohgatp_sv39x4();
 
-    ddt_inval(false, idma_ids[idma_idx]);
-    iotinval_vma(false, false, false, 0, 0, 0);
-    iotinval_gvma(false, false, 0, 0);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_iotinval_vma(false, false, false, 0, 0, 0);
+    rv_iommu_iotinval_gvma(false, false, 0, 0);
 
     rv_iommu_set_iohpmctr(0, 0);
     rv_iommu_set_iohpmctr(0, 1);

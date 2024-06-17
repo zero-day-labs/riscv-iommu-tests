@@ -9,14 +9,14 @@
 // TEST_REGISTER(latency_test);
 
 // IOMMU Arch tests
-TEST_REGISTER(dbg_interface);
-// TEST_REGISTER(mrif_support);
+// TEST_REGISTER(dbg_interface);
+TEST_REGISTER(mrif_support);
 // TEST_REGISTER(hpm);
-// TEST_REGISTER(msi_generation);
+TEST_REGISTER(msi_generation);
 // TEST_REGISTER(iofence);
 // TEST_REGISTER(wsi_generation);
 // TEST_REGISTER(iotinval);
-// TEST_REGISTER(two_stage_translation);
+TEST_REGISTER(two_stage_translation);
 // TEST_REGISTER(second_stage_only);
 // TEST_REGISTER(both_stages_bare);
 // TEST_REGISTER(iommu_bare);

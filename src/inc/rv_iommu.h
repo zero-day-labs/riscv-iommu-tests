@@ -5,6 +5,11 @@
 
 #define IOMMU_MAX_HPM_COUNTERS 31
 
+// Number of entries in the CQ. Must be POT
+#define CQ_N_ENTRIES    (64 )
+// Size of the queue represented as Log2(64)-1 = 5
+#define CQ_LOG2SZ_1     (5  )
+
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
 
@@ -88,6 +93,18 @@
 
 #define IOMMU_REG_ADDR(OFF)     (IOMMU_BASE_ADDR + OFF)
 
+// cqcsr masks
+#define CQCSR_CQEN          (1UL << 0)
+#define CQCSR_CIE           (1UL << 1)
+#define CQCSR_CQMF          (1UL << 8)
+#define CQCSR_CMD_TO        (1UL << 9)
+#define CQCSR_CMD_ILL       (1UL << 10)
+#define CQCSR_FENCE_W_IP    (1UL << 11)
+#define CQCSR_CQON          (1UL << 16)
+#define CQCSR_BUSY          (1UL << 17)
+
+#define IOFENCE_DATA    (0xABCDEFUL)
+
 void init_iommu(void);
 
 void set_iommu_off(void);
@@ -122,5 +139,17 @@ uint8_t rv_iommu_dbg_req_fault(void);
 uint8_t rv_iommu_dbg_req_is_superpage(void);
 uint64_t rv_iommu_dbg_translated_ppn(void);
 uint8_t rv_iommu_dbg_ppn_encode_x(void);
+
+/** Command-Queue-related functions */
+void rv_iommu_cq_init(void);
+uint32_t rv_iommu_get_cqh(void);
+uint32_t rv_iommu_get_cqcsr(void);
+void rv_iommu_set_cqcsr(uint32_t new_cqcsr);
+void rv_iommu_induce_fault_cq(void);
+void rv_iommu_ddt_inval(bool dv, uint64_t device_id);
+void rv_iommu_iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid);
+void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
+void rv_iommu_iofence_c(bool wsi, bool av);
+uint32_t rv_iommu_get_iofence(void);
 
 #endif  /* _RV_IOMMU_H_ */

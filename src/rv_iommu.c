@@ -1,6 +1,5 @@
 #include <rv_iommu.h>
 #include <iommu_tests.h>
-#include <command_queue.h>
 #include <fault_queue.h>
 #include <device_contexts.h>
 #include <msi_pts.h>
@@ -22,6 +21,51 @@
 #define TR_RESPONSE_SP_BIT      (1ULL << 9)
 #define TR_RESPONSE_PPN_OFFSET  (10)
 #define TR_RESPONSE_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+
+
+
+/** Command-Queue Macros */
+
+// Mask for cqb.PPN (cqb[53:10])
+#define CQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
+// Mask for CQ PPN (cqb[55:12])
+#define CQ_PPN_MASK        (0xFFFFFFFFFFF000ULL)
+// Mask for ADDR[63:12]
+#define ADDR_63_12_MASK (0xFFFFFFFFFFFFF000ULL)
+// Offset for cqb.PPN
+#define CQB_PPN_OFF     (10)
+
+// opcodes
+#define IOTINVAL    (0x1ULL << 0)
+#define IOFENCE     (0x2ULL << 0)
+#define IODIR       (0x3ULL << 0)
+
+// func3
+#define VMA         (0ULL << 7)
+#define GVMA        (1ULL << 7)
+#define FUNC3_C     (0ULL << 7)
+#define INVAL_DDT   (0ULL << 7)
+#define INVAL_PDT   (1ULL << 7)
+
+// misc fields
+#define IOTINVAL_AV     (1ULL << 10)
+#define IOTINVAL_GV     (1ULL << 33)
+#define IOTINVAL_PSCV   (1ULL << 32)
+
+#define IOFENCE_AV      (1ULL << 10)
+#define IOFENCE_WSI     (1ULL << 11)
+#define IOFENCE_PR      (1ULL << 12)
+#define IOFENCE_PW      (1ULL << 13)
+#define IOFENCE_ADDR    (0x82000000ULL)
+
+#define IODIR_DV        (1ULL << 33)
+
+// offsets
+#define IOTINVAL_PSCID_OFF  (12)
+#define IOTINVAL_GSCID_OFF  (44)
+#define IOTINVAL_IOVA_OFF   (10)
+
+#define IODIR_DID_OFF       (40)
 
 typedef struct debug {
   uint64_t tr_req_iova; // translation-request IOVA
@@ -59,8 +103,12 @@ typedef struct iommu {
 
 }__attribute__((__packed__, aligned(PAGE_SIZE))) iommu_t;
 
-/** IOMMU structure only visible inside IOMMU driver */
+/** IOMMU hw structure only visible inside IOMMU driver */
 static iommu_t *iommu = (void*)IOMMU_BASE_ADDR;
+
+// N_entries * 16 bytes
+uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
+
 
 /**
  *  IOMMU Memory-mapped registers 
@@ -94,6 +142,154 @@ uint32_t msi_vec_ctl_hpm  = 0x0UL;
 // DDT
 extern uint64_t root_ddt[];
 
+typedef uint64_t command_t[2];
+
+static inline void rv_iommu_write_command_in_queue(command_t new_cmd)
+{
+    uint32_t cqt = read32((uintptr_t)&iommu->cqt);
+    // Get address of the next entry to write in the CQ
+    uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
+
+    // Write command to memory
+    write64(cq_entry_base, new_cmd[0]);
+    write64(cq_entry_base + 8, new_cmd[1]);
+
+    // increment the command-queue tail index
+    cqt++;
+    write32((uintptr_t)&iommu->cqt, cqt);
+}
+
+void rv_iommu_cq_init(void)
+{
+    // Configure cqb with base PPN of the queue and size as log2(N)
+    write64((uintptr_t)&iommu->cqb, ((((uintptr_t)command_queue) >> 2) & CQB_PPN_MASK) | CQ_LOG2SZ_1);
+
+    // Set cqt equal to cqh
+    write32((uintptr_t)&iommu->cqt, read32((uintptr_t)&iommu->cqh));
+
+    // Write 1 to cqcsr.cqen to enable the CQ
+    write32((uintptr_t)&iommu->cqcsr, CQCSR_CQEN | CQCSR_CIE);
+
+    // Poll cqcsr.cqon until it reads 1
+    while (!(read32((uintptr_t)&iommu->cqcsr) & CQCSR_CQON));
+}
+
+uint32_t rv_iommu_get_cqh(void)
+{
+    return read32((uintptr_t)&iommu->cqh);
+}
+
+uint32_t rv_iommu_get_cqcsr(void)
+{
+    return read32((uintptr_t)&iommu->cqcsr);
+}
+
+void rv_iommu_set_cqcsr(uint32_t new_cqcsr)
+{
+    write32((uintptr_t)&iommu->cqcsr, new_cqcsr);
+}
+
+void rv_iommu_induce_fault_cq(void)
+{
+    //# Induce a fault in the CQ
+    command_t new_cmd;
+    new_cmd[0]    = IOTINVAL | GVMA;
+
+    // Add PSCID (invalid for IOTINVAL.GVMA)
+    new_cmd[0]    |= IOTINVAL_PSCV;
+
+    new_cmd[1]    = 0;
+
+    rv_iommu_write_command_in_queue(new_cmd);
+}
+
+void rv_iommu_ddt_inval(bool dv, uint64_t device_id)
+{
+    command_t new_cmd;
+
+    INFO("Writing IODIR.INVAL_DDT to CQ")
+    new_cmd[0]    = IODIR | INVAL_DDT;
+    // Add device_id if needed
+    if (dv){
+        new_cmd[0]    |= IODIR_DV | (device_id << IODIR_DID_OFF);
+    }
+    new_cmd[1]    = 0;
+
+    rv_iommu_write_command_in_queue(new_cmd);
+}
+
+void rv_iommu_iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid)
+{
+    command_t new_cmd;
+
+    INFO("Writing IOTINVAL.VMA to CQ")
+    new_cmd[0]    = IOTINVAL | VMA;
+
+    // Add GSCID
+    if (gv)
+        new_cmd[0] |= (IOTINVAL_GV | (gscid << IOTINVAL_GSCID_OFF));
+
+    // Add PSCID
+    if (pscv)
+        new_cmd[0] |= (IOTINVAL_PSCV | (pscid << IOTINVAL_PSCID_OFF));
+
+    new_cmd[1]    = 0;
+
+    // Add ADDR
+    if (av)
+        new_cmd[1] |= (IOTINVAL_AV | ((addr >> 12) << IOTINVAL_IOVA_OFF));
+
+   rv_iommu_write_command_in_queue(new_cmd);
+}
+
+void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid)
+{
+    command_t new_cmd;
+
+    INFO("Writing IOTINVAL.GVMA to CQ")
+    new_cmd[0]    = IOTINVAL | GVMA;
+
+    // Add GSCID
+    if (gv)
+        new_cmd[0] |= (IOTINVAL_GV | (gscid << IOTINVAL_GSCID_OFF));
+
+    new_cmd[1]    = 0;
+
+    // Add ADDR
+    if (av)
+        new_cmd[1] |= (IOTINVAL_AV | ((addr >> 12) << IOTINVAL_IOVA_OFF));
+
+    rv_iommu_write_command_in_queue(new_cmd);
+}
+
+void rv_iommu_iofence_c(bool wsi, bool av)
+{
+    command_t new_cmd;
+
+    INFO("Writing IOFENCE to CQ")
+    new_cmd[0]    = IOFENCE | FUNC3_C;
+
+    // Add WSI
+    if (wsi)
+        new_cmd[0]    |= IOFENCE_WSI;
+
+    // Add AV
+    if (av)
+    {
+        new_cmd[0]    |= IOFENCE_AV;
+        new_cmd[0]    |= (IOFENCE_DATA << 32);
+        new_cmd[1]    = (IOFENCE_ADDR >> 2);
+    }
+
+    rv_iommu_write_command_in_queue(new_cmd);
+}
+
+uint32_t rv_iommu_get_iofence(void)
+{
+    uintptr_t iofence_addr = IOFENCE_ADDR;
+    uint32_t iofence_data = read32(iofence_addr);
+    return iofence_data;
+}
 
 
 /**
@@ -335,7 +531,7 @@ void init_iommu()
     // Set cqt to zero.
     // Enable the CQ by writing 1 to cqcsr.cqen, poll cqcsr.cqon until it reads 1.
     INFO("Configuring CQ");
-    cq_init();
+    rv_iommu_cq_init();
     VERBOSE("CQ: Interrupts enabled");
 
     //# Setup the Fault Queue:
