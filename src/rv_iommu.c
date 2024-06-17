@@ -1,6 +1,5 @@
 #include <rv_iommu.h>
 #include <iommu_tests.h>
-#include <fault_queue.h>
 #include <device_contexts.h>
 #include <msi_pts.h>
 #include <iommu_pts.h>
@@ -21,51 +20,6 @@
 #define TR_RESPONSE_SP_BIT      (1ULL << 9)
 #define TR_RESPONSE_PPN_OFFSET  (10)
 #define TR_RESPONSE_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
-
-
-
-/** Command-Queue Macros */
-
-// Mask for cqb.PPN (cqb[53:10])
-#define CQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
-// Mask for CQ PPN (cqb[55:12])
-#define CQ_PPN_MASK        (0xFFFFFFFFFFF000ULL)
-// Mask for ADDR[63:12]
-#define ADDR_63_12_MASK (0xFFFFFFFFFFFFF000ULL)
-// Offset for cqb.PPN
-#define CQB_PPN_OFF     (10)
-
-// opcodes
-#define IOTINVAL    (0x1ULL << 0)
-#define IOFENCE     (0x2ULL << 0)
-#define IODIR       (0x3ULL << 0)
-
-// func3
-#define VMA         (0ULL << 7)
-#define GVMA        (1ULL << 7)
-#define FUNC3_C     (0ULL << 7)
-#define INVAL_DDT   (0ULL << 7)
-#define INVAL_PDT   (1ULL << 7)
-
-// misc fields
-#define IOTINVAL_AV     (1ULL << 10)
-#define IOTINVAL_GV     (1ULL << 33)
-#define IOTINVAL_PSCV   (1ULL << 32)
-
-#define IOFENCE_AV      (1ULL << 10)
-#define IOFENCE_WSI     (1ULL << 11)
-#define IOFENCE_PR      (1ULL << 12)
-#define IOFENCE_PW      (1ULL << 13)
-#define IOFENCE_ADDR    (0x82000000ULL)
-
-#define IODIR_DV        (1ULL << 33)
-
-// offsets
-#define IOTINVAL_PSCID_OFF  (12)
-#define IOTINVAL_GSCID_OFF  (44)
-#define IOTINVAL_IOVA_OFF   (10)
-
-#define IODIR_DID_OFF       (40)
 
 typedef struct debug {
   uint64_t tr_req_iova; // translation-request IOVA
@@ -109,6 +63,8 @@ static iommu_t *iommu = (void*)IOMMU_BASE_ADDR;
 // N_entries * 16 bytes
 uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
 
+// N_entries * 32 bytes
+uint64_t fault_queue[FQ_N_ENTRIES * 4 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
 
 /**
  *  IOMMU Memory-mapped registers 
@@ -291,6 +247,49 @@ uint32_t rv_iommu_get_iofence(void)
     return iofence_data;
 }
 
+static void rv_iommu_fq_init(void)
+{
+    uint64_t   fqb;
+
+    // Configure fqb with base PPN of the queue and size as log2(N)
+    fqb = ((((uintptr_t)fault_queue) >> 2) & FQB_PPN_MASK) | FQ_LOG2SZ_1;
+    write64((uintptr_t)&iommu->fqb, fqb);
+
+    write32((uintptr_t)&iommu->fqh, read32((uintptr_t)&iommu->fqt));
+
+    // Write 1 to fqcsr.fqen to enable the FQ
+    write32((uintptr_t)&iommu->fqcsr, FQCSR_FQEN | FQCSR_FIE);
+
+    // Poll fqcsr.fqon until it reads 1
+    while (!(read32((uintptr_t)&iommu->fqcsr) & FQCSR_FQON));
+}
+
+int rv_iommu_fq_read_record(uint64_t *buf)
+{
+    // Read fqh
+    uint32_t fqh = read32((uintptr_t)&iommu->fqh);
+
+    // Read fqt
+    uint32_t fqt = read32((uintptr_t)&iommu->fqt);
+
+    if (fqh != fqt) {
+        // Get address of the next entry in the FQ
+        uintptr_t fq_entry_base = ((uintptr_t)fault_queue & FQ_PPN_MASK) | (fqh << 5);
+
+        // Read FQ record by DWs
+        buf[0] = read64(fq_entry_base + 0 );
+        buf[1] = read64(fq_entry_base + 8 );
+        buf[2] = read64(fq_entry_base + 16);
+        buf[3] = read64(fq_entry_base + 24);
+
+        fqh++;
+        write32((uintptr_t)&iommu->fqh, fqh);
+
+        return 0;
+    } else {
+        return -1;
+    }
+}
 
 /**
  *  Set IOMMU OFF. All transactions are disallowed and blocked
@@ -541,7 +540,7 @@ void init_iommu()
     // Set fqh to zero.
     // Enable the FQ by writing 1 to fqcsr.fqen, poll fqcsr.fqon until it reads 1.
     INFO("Configuring FQ");
-    fq_init();
+    rv_iommu_fq_init();
     VERBOSE("FQ: Interrupts enabled");
 
     //# Configure Page Tables for both translation stages in memory

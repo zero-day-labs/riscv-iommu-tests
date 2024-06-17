@@ -1,5 +1,4 @@
 #include <iommu_tests.h>
-#include <fault_queue.h>
 #include <device_contexts.h>
 #include <msi_pts.h>
 #include <iommu_pts.h>
@@ -29,13 +28,6 @@
 /**
  *  IOMMU Memory-mapped registers 
  */
-// fctl
-extern uintptr_t fctl_addr;
-
-
-// FQ
-extern uintptr_t fqb_addr;
-extern uintptr_t fqh_addr;
 
 // MSI Cfg table
 extern uintptr_t msi_addr_cq_addr;
@@ -238,7 +230,7 @@ bool iommu_off(){
 
     //# Check fault record written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == ALL_INB_TRANSACTIONS_DISALLOWED);
@@ -248,7 +240,7 @@ bool iommu_off(){
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
 
     // Second entry
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     check_cause = ((fq_entry[0] & CAUSE_MASK) == ALL_INB_TRANSACTIONS_DISALLOWED);
@@ -691,7 +683,7 @@ bool wsi_generation(){
     // Check CAUSE, TTYP, iotval and iotval2 according to the fault.
     // Read FQ record by DWs
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == LOAD_PAGE_FAULT);
@@ -701,7 +693,7 @@ bool wsi_generation(){
     TEST_ASSERT("Read 1: Recorded IOVA matches with input IOVA", check_iova);
 
     // Second entry
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     check_cause = ((fq_entry[0] & CAUSE_MASK) == STORE_GUEST_PAGE_FAULT);
@@ -827,10 +819,10 @@ bool msi_generation(){
 
     // Discard fault records written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     TEST_END();
@@ -1108,7 +1100,7 @@ bool mrif_support(){
     
     // Check fault record written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == MSI_PTE_INVALID);
@@ -1267,7 +1259,7 @@ bool dbg_interface(){
 
     // Check fault
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == TRANS_TYPE_DISALLOWED);

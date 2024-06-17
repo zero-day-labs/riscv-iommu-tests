@@ -1,14 +1,6 @@
 #ifndef FAULT_QUEUE_H
 #define FAULT_QUEUE_H
 
-#include <iommu_tests.h>
-#include <rv_iommu.h>
-
-// Number of entries in the FQ. Must be POT
-#define FQ_N_ENTRIES    (64)
-// Size of the queue represented as Log2(64)-1 = 5
-#define FQ_LOG2SZ_1     (5 )
-
 // Mask for cqb.PPN (fqb[53:10])
 #define FQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
 // Mask for CQ PPN (cqb[55:12])
@@ -61,8 +53,5 @@
 #define INTERN_DATAPATH_FAULT               (272)
 #define MSI_ST_ACCESS_FAULT                 (273)
 #define PT_DATA_CORRUPTION                  (274)
-
-void fq_init(void);
-int fq_read_record(uint64_t *buf);
 
 #endif  /* FAULT_QUEUE_H */

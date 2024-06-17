@@ -1,6 +1,8 @@
 #ifndef _RV_IOMMU_H_
 #define _RV_IOMMU_H_
 
+#include <rv_iommu_cq.h>
+#include <rv_iommu_fq.h>
 #include <iommu_tests.h>
 
 #define IOMMU_MAX_HPM_COUNTERS 31
@@ -9,6 +11,11 @@
 #define CQ_N_ENTRIES    (64 )
 // Size of the queue represented as Log2(64)-1 = 5
 #define CQ_LOG2SZ_1     (5  )
+
+// Number of entries in the FQ. Must be POT
+#define FQ_N_ENTRIES    (64)
+// Size of the queue represented as Log2(64)-1 = 5
+#define FQ_LOG2SZ_1     (5 )
 
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
@@ -93,16 +100,6 @@
 
 #define IOMMU_REG_ADDR(OFF)     (IOMMU_BASE_ADDR + OFF)
 
-// cqcsr masks
-#define CQCSR_CQEN          (1UL << 0)
-#define CQCSR_CIE           (1UL << 1)
-#define CQCSR_CQMF          (1UL << 8)
-#define CQCSR_CMD_TO        (1UL << 9)
-#define CQCSR_CMD_ILL       (1UL << 10)
-#define CQCSR_FENCE_W_IP    (1UL << 11)
-#define CQCSR_CQON          (1UL << 16)
-#define CQCSR_BUSY          (1UL << 17)
-
 #define IOFENCE_DATA    (0xABCDEFUL)
 
 void init_iommu(void);
@@ -151,5 +148,8 @@ void rv_iommu_iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t 
 void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
 void rv_iommu_iofence_c(bool wsi, bool av);
 uint32_t rv_iommu_get_iofence(void);
+
+/** fault-Queue-related functions */
+int rv_iommu_fq_read_record(uint64_t *buf);
 
 #endif  /* _RV_IOMMU_H_ */
