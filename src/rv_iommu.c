@@ -1,7 +1,6 @@
 #include <rv_iommu.h>
 #include <iommu_tests.h>
-#include <msi_pts.h>
-#include <iommu_pts.h>
+#include <page_tables.h>
 
 #define TR_REQ_CTL_DID_OFFSET   40
 #define TR_REQ_CTL_DID_MASK     0xFFFFFF0000000000ULL

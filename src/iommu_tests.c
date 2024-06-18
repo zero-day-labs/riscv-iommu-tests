@@ -1,6 +1,5 @@
 #include <iommu_tests.h>
-#include <msi_pts.h>
-#include <iommu_pts.h>
+#include <page_tables.h>
 #include <rv_iommu.h>
 #include <plat_dma.h>
 #include <idma.h>
