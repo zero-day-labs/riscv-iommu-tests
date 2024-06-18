@@ -1,7 +1,7 @@
 #ifndef _IDMA_H_
 #define _IDMA_H_
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 
 #define IDMA_DECOUPLE   (1ULL << 0)
 #define IDMA_DEBURST    (1ULL << 1)

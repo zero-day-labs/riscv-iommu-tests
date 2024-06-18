@@ -1,7 +1,7 @@
 #ifndef DEVICE_CONTEXTS_H
 #define DEVICE_CONTEXTS_H
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 #include <rv_iommu.h>
 
 // Number of entries of the root DDT (4-kiB / 64 bytes p/ entry)

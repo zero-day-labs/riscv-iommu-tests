@@ -1,7 +1,7 @@
 #ifndef HPM_H
 #define HPM_H
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 
 // Enabled counters
 #define CNT_MASK    (0x0000003EUL)

@@ -1,4 +1,4 @@
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 #include <page_tables.h>
 #include <rv_iommu.h>
 #include <plat_dma.h>

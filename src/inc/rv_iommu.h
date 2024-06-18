@@ -5,7 +5,7 @@
 #include <rv_iommu_fq.h>
 #include <rv_iommu_dc.h>
 #include <rv_iommu_hpm.h>
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 
 #define IOMMU_MAX_HPM_COUNTERS 31
 

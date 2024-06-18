@@ -1,7 +1,7 @@
 #ifndef PAGE_TABLES_H
 #define PAGE_TABLES_H
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 
 /***************************************************************************************************
  *                             RISC-V Page Tables Related Macros                                   *

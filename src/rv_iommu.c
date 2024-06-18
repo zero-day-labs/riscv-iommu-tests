@@ -1,5 +1,5 @@
 #include <rv_iommu.h>
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 #include <page_tables.h>
 
 #define TR_REQ_CTL_DID_OFFSET   40

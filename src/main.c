@@ -1,9 +1,4 @@
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <rvh_test.h>
-#include <iommu_tests.h>
 #include <rv_iommu.h>
 
 void main(){
@@ -12,6 +7,7 @@ void main(){
 
     // Reset CPU
     reset_state();
+    // Init IOMMU with basic configuration
     init_iommu();
 
     // Test functions are manually assigned to the .test_table 
