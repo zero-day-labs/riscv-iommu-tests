@@ -94,6 +94,8 @@
 
 enum priv {PRIV_VU = 0, PRIV_HU = 1, PRIV_VS = 2, PRIV_HS = 3, PRIV_M = 4, PRIV_MAX};
 extern unsigned curr_priv;
+extern uint32_t num_total_tests;
+extern uint32_t num_succ_tests;
 
 static const char* priv_strs[] = {
     [PRIV_VU] = "vu",
@@ -144,6 +146,8 @@ extern size_t test_table_size;
         printf(CBLU "\t%-70.*s" CDFLT, line_size, test);\
         for(int i = line_size; i < size; i+=line_size)\
             printf(CBLU "\n\t%-70.*s" CDFLT, line_size, &test[i]);\
+        num_total_tests++;\
+        if(cond) {num_succ_tests++;};\
         printf("%s" CDFLT, (cond) ? CGRN "PASSED" : CRED "FAILED");\
         if(!(cond)) { printf("\n\t("); printf(""__VA_ARGS__); printf(")"); }\
         printf("\n");\
@@ -237,6 +241,16 @@ failed:\
 #define check_csr_rd(name, addr, rd){\
     uint64_t val = CSRR(addr);\
     TEST_ASSERT(name, ((rd) == (val)), "%16c %016lx %016lx", '-', val, rd);\
+}
+
+#define END(){\
+    if (num_succ_tests == num_total_tests) { \
+        printf(CGRN "Summary: passed %d of %d\n", num_succ_tests, num_total_tests); \
+    } else { \
+        printf(CRED "Summary: failed %d of %d\n", num_total_tests-num_succ_tests, num_total_tests); \
+    } \
+    printf(CBLU "You can close the test!\n"); \
+    exit(0);\
 }
 
 static inline uint64_t read64(uintptr_t addr){

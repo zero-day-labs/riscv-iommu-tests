@@ -19,6 +19,5 @@ void main(){
     for(int i = 0; i < test_table_size; i++)
         test_table[i]();
 
-    INFO("end");
-    exit(0);
+    END();
 }

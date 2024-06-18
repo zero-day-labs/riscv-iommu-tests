@@ -1,5 +1,10 @@
 #include <rvh_test.h>
 
+// count the total number of tests perfomed in a single run
+uint32_t num_total_tests;
+// count how many of the this tests were successully ran
+uint32_t num_succ_tests;
+
 //enum test_state {};
 
 // Test functions are manually assigned to the .test_table section
