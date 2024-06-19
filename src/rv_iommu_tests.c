@@ -1,12 +1,7 @@
-#include <iommu_tests.h>
-#include <command_queue.h>
-#include <fault_queue.h>
-#include <device_contexts.h>
-#include <msi_pts.h>
-#include <iommu_pts.h>
-#include <hpm.h>
-#include <dbg_if.h>
+#include <rv_iommu_tests.h>
+#include <page_tables.h>
 #include <rv_iommu.h>
+#include <plat_dma.h>
 #include <idma.h>
 
 /**
@@ -26,71 +21,6 @@
  *      in bare mode so we can write directly using physical addresses.
  */
 
-/**
- *  iDMA device IDs 
- */
-extern uint64_t idma_ids[];
-
-/**
- *  iDMA Configuration Registers
- */
-extern uintptr_t idma_src[];
-extern uintptr_t idma_dest[];
-extern uintptr_t idma_nbytes[];
-extern uintptr_t idma_config[];
-extern uintptr_t idma_status[];
-extern uintptr_t idma_nextid[];
-extern uintptr_t idma_done[];
-extern uintptr_t idma_ipsr[];
-
-/**
- *  IOMMU Memory-mapped registers 
- */
-// fctl
-extern uintptr_t fctl_addr;
-
-// CQ
-extern uintptr_t cqcsr_addr;
-extern uintptr_t cqb_addr;
-extern uintptr_t cqh_addr;
-extern uintptr_t cqt_addr;
-
-// FQ
-extern uintptr_t fqb_addr;
-extern uintptr_t fqh_addr;
-
-// ipsr
-extern uintptr_t ipsr_addr;
-
-// icvec
-extern uintptr_t icvec_addr;
-
-// HPM
-extern uintptr_t iocountovf_addr;
-extern uintptr_t iocountihn_addr;
-extern uintptr_t iohpmcycles_addr;
-extern uintptr_t iohpmctr_addr[];
-extern uintptr_t iohpmevt_addr[];
-
-// MSI Cfg table
-extern uintptr_t msi_addr_cq_addr;
-extern uintptr_t msi_data_cq_addr;
-extern uintptr_t msi_vec_ctl_cq_addr;
-extern uintptr_t msi_addr_fq_addr;
-extern uintptr_t msi_data_fq_addr;
-extern uintptr_t msi_vec_ctl_fq_addr;
-extern uintptr_t msi_addr_hpm_addr;
-extern uintptr_t msi_data_hpm_addr;
-extern uintptr_t msi_vec_ctl_hpm_addr;
-
-// MSI Cfg table data
-extern uint64_t msi_addr_cq;
-extern uint64_t msi_addr_fq;
-extern uint64_t msi_addr_hpm;
-extern uint32_t msi_data_cq;
-extern uint32_t msi_data_fq;
-extern uint32_t msi_data_hpm;
-
 // MRIF
 extern uint64_t mrif[];
 
@@ -105,6 +35,10 @@ bool idma_only(){
 
     // Print the name of the test and create test_status variable
     TEST_START();
+
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
@@ -126,10 +60,10 @@ bool idma_only(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    idma_setup(0, read_paddr1, write_paddr1, 8);
+    idma_setup(dma_ut, read_paddr1, write_paddr1, 8);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -138,19 +72,19 @@ bool idma_only(){
 
     if (IDMA_IRQ_EN)
     {
-        check1 = (read64(idma_ipsr[0]) == 3);
+        check1 = (read64((uintptr_t)&dma_ut->ipsr) == 3);
         TEST_ASSERT("iDMA interrupt pending bits set", check1);
 
-        write64(idma_ipsr[0], (uint64_t) 0x03);
+        write64((uintptr_t)&dma_ut->ipsr, (uint64_t) 0x03);
 
-        check1 = (read64(idma_ipsr[0]) == 0);
+        check1 = (read64((uintptr_t)&dma_ut->ipsr) == 0);
         TEST_ASSERT("iDMA interrupt pending bits cleared after writing 1", check1);
     }
 
     /*------------- SECOND TRANSFER --------------*/
-    idma_setup_addr(0, read_paddr2, write_paddr2);
+    idma_setup_addr(dma_ut, read_paddr2, write_paddr2);
 
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -172,6 +106,10 @@ bool idma_only_multiple_beats(){
 
     // Print the name of the test and create test_status variable
     TEST_START();
+    
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     // Two for the source address from where the iDMA will read values,
@@ -203,10 +141,10 @@ bool idma_only_multiple_beats(){
     //# Program the iDMA with Virtual Addresses
     // Program the iDMA with the corresponding VAddresses to read the values that were written 
     // previously in memory, and write them in other VAddresses, whose mapped physical addresses are also known.
-    idma_setup(0, start_raddr1, start_waddr1, 24);
+    idma_setup(dma_ut, start_raddr1, start_waddr1, 24);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -218,10 +156,10 @@ bool idma_only_multiple_beats(){
 
     /*------------- SECOND TRANSFER --------------*/
 
-    idma_setup_addr(0, start_raddr2, start_waddr2);
+    idma_setup_addr(dma_ut, start_raddr2, start_waddr2);
 
     // Check if iDMA was set up properly and init transfer
-    if (idma_exec_transfer(0) != 0)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -250,18 +188,22 @@ bool iommu_off(){
     set_iommu_off();
     VERBOSE("IOMMU Off");
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     //# Get addresses
     uintptr_t read_vaddr1 = virt_page_base(IOMMU_OFF_R);
     uintptr_t write_vaddr1 = virt_page_base(IOMMU_OFF_W);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check fault record written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == ALL_INB_TRANSACTIONS_DISALLOWED);
@@ -271,14 +213,14 @@ bool iommu_off(){
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
 
     // Second entry
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     check_cause = ((fq_entry[0] & CAUSE_MASK) == ALL_INB_TRANSACTIONS_DISALLOWED);
     check_iova  = (fq_entry[2] == write_vaddr1);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
@@ -299,6 +241,10 @@ bool iommu_bare(){
     set_iommu_bare();
     VERBOSE("IOMMU in Bare mode");
 
+    /** Map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     //# Get addresses
     uintptr_t start_raddr1 = phys_page_base(IOMMU_BARE_R);
     uintptr_t start_waddr1 = phys_page_base(IOMMU_BARE_W);
@@ -312,9 +258,10 @@ bool iommu_bare(){
     write64(start_waddr1 + 8 , 0x00);
     write64(start_waddr1 + 16, 0x00);
 
-    //# Config iDMA and init transfer
-    idma_setup(0, start_raddr1, start_waddr1, 24);
-    if (idma_exec_transfer(0) != 0)
+    //# Configure DMA
+    idma_setup(dma_ut, start_raddr1, start_waddr1, 24);
+    //# Initiate DMA transfer (only returns when transfer is done)
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check transfer
@@ -333,11 +280,14 @@ bool iommu_bare(){
 bool both_stages_bare(){
 
     TEST_START();
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_bare();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_bare();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Bare | iosatp: Bare");
 
     //# Get addresses
@@ -354,8 +304,8 @@ bool both_stages_bare(){
     write64(write_paddr2, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_paddr1, write_paddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_paddr1, write_paddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -365,8 +315,8 @@ bool both_stages_bare(){
     /*------- SECOND TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_paddr2, write_paddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_paddr2, write_paddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -385,16 +335,19 @@ bool both_stages_bare(){
 bool second_stage_only(){
 
     TEST_START();
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get addresses
     uintptr_t read_paddr1 = phys_page_base(S2_ONLY_R);
@@ -413,8 +366,8 @@ bool second_stage_only(){
     write64(write_paddr2, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -425,8 +378,8 @@ bool second_stage_only(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup(0, read_vaddr2, write_vaddr2, 4);
-        if (idma_exec_transfer(0) != 0)
+        idma_setup(dma_ut, read_vaddr2, write_vaddr2, 4);
+        if (idma_exec_transfer(dma_ut) != 0)
             {ERROR("iDMA misconfigured")}
 
         //# Check second transfer
@@ -450,15 +403,19 @@ bool two_stage_translation(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
     uintptr_t read_paddr1 = phys_page_base(TWO_STAGE_R4K);
@@ -491,8 +448,8 @@ bool two_stage_translation(){
     write64(write_paddr4, 0x00);
 
     //# Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check first transfer
@@ -502,8 +459,8 @@ bool two_stage_translation(){
     /*------- SECOND TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check second transfer
@@ -513,8 +470,8 @@ bool two_stage_translation(){
     /*------- THIRD TRANSFER -------*/
 
     //# Config iDMA and init transfer
-    idma_setup_addr(0, read_vaddr3, write_vaddr3);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr3, write_vaddr3);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //# Check third transfer
@@ -526,8 +483,8 @@ bool two_stage_translation(){
     if (MSI_TRANSLATION == 1)
     {
         //# Config iDMA and init transfer
-        idma_setup(0, read_vaddr4, write_vaddr4, 4);
-        if (idma_exec_transfer(0) != 0)
+        idma_setup(dma_ut, read_vaddr4, write_vaddr4, 4);
+        if (idma_exec_transfer(dma_ut) != 0)
             {ERROR("iDMA misconfigured")}
 
         //# Check fourth transfer
@@ -551,11 +508,15 @@ bool iotinval(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
@@ -577,13 +538,13 @@ bool iotinval(){
     write64(write_paddr2, 0x00);
 
     //### FIRST TRANSFER
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     //### SECOND TRANSFER
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Read from the physical addresses where the iDMA wrote. Compare with the initial values.
@@ -600,15 +561,15 @@ bool iotinval(){
     fence_i();
 
     //### IOTINVAL.VMA
-    iotinval_vma(false, true, true, 0, 0xABC, 0xDEF);
+    rv_iommu_iotinval_vma(false, true, true, 0, 0xABC, 0xDEF);
 
     //### Perform previous transfers again
-    idma_setup_addr(0, read_vaddr1, write_vaddr1);  // first
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);  // second
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);  // second
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -625,15 +586,15 @@ bool iotinval(){
     fence_i();
 
     //### IOTINVAL.GVMA
-    iotinval_gvma(false, true, 0, 0xABC);
+    rv_iommu_iotinval_gvma(false, true, 0, 0xABC);
 
     //### Perform previous transfers again
-    idma_setup_addr(0, read_vaddr1, write_vaddr1);  // first
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);  // first
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
-    idma_setup_addr(0, read_vaddr2, write_vaddr2);  // second
-    if (idma_exec_transfer(0) != 0)
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);  // second
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Since we switched first-stage PTEs, 0x22 should have been written in write_paddr1
@@ -650,11 +611,15 @@ bool wsi_generation(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     //# Configure the IOMMU to generate interrupts as WSI
@@ -671,27 +636,27 @@ bool wsi_generation(){
     write64(read_paddr1, 0x11);
     write64(write_paddr1, 0x00);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Check if ipsr.fip was set in case of error
-    bool check = ((read32(ipsr_addr) & FIP_MASK) == 2);
+    bool check = ((rv_iommu_get_ipsr() & FIP_MASK) == 2);
     TEST_ASSERT("ipsr.fip set on FQ recording", check);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     fence_i();
 
-    check = (read32(ipsr_addr) == 0);
+    check = (rv_iommu_get_ipsr() == 0);
     TEST_ASSERT("ipsr.fip cleared after writing 1", check);
 
     //# Check fault record written in memory
     // Check CAUSE, TTYP, iotval and iotval2 according to the fault.
     // Read FQ record by DWs
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == LOAD_PAGE_FAULT);
@@ -701,7 +666,7 @@ bool wsi_generation(){
     TEST_ASSERT("Read 1: Recorded IOVA matches with input IOVA", check_iova);
 
     // Second entry
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     check_cause = ((fq_entry[0] & CAUSE_MASK) == STORE_GUEST_PAGE_FAULT);
@@ -724,36 +689,35 @@ bool iofence(){
     fence_i();
     set_iommu_1lvl();
 
-    uint32_t cqh = read32(cqh_addr);
+    uint32_t cqh = rv_iommu_get_cqh();
 
     //# Send command
-    iofence_c(true, true, IOFENCE_ADDR, IOFENCE_DATA);
+    rv_iommu_iofence_c(true, true);
 
     // Flush cache
     fence_i();
 
-    uint32_t cqh_inc = read32(cqh_addr);
+    uint32_t cqh_inc = rv_iommu_get_cqh();
     bool check = (cqh_inc == (cqh + 1));
     TEST_ASSERT("cqh was incremented", check);
 
     // Check whether cqcsr.fence_w_ip was set
-    uint32_t cqcsr = read32(cqcsr_addr);
+    uint32_t cqcsr = rv_iommu_get_cqcsr();
     check = ((cqcsr & CQCSR_FENCE_W_IP) != 0);
     TEST_ASSERT("cqcsr.fence_w_ip was set", check);
 
     // Check if ipsr.cip was set for WSI = 1
-    check = ((read32(ipsr_addr) & CIP_MASK) == 1);
+    check = ((rv_iommu_get_ipsr() & CIP_MASK) == 1);
     TEST_ASSERT("ipsr.cip setting on IOFENCE completion", check);
 
     // Check if data was correctly written in memory for AV = 1
-    uintptr_t iofence_addr = IOFENCE_ADDR;
-    uint32_t iofence_data = read32(iofence_addr);
+    uint32_t iofence_data = rv_iommu_get_iofence();
     check = (iofence_data == IOFENCE_DATA);
     TEST_ASSERT("IOFENCE DATA was correctly written in the given ADDR", check);
 
     // Clear cqcsr.fence_w_ip and ipsr
-    write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_set_cqcsr(cqcsr);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_END();
 }
@@ -767,11 +731,15 @@ bool msi_generation(){
     // Print the name of the test and create test_status variable
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+    
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
     VERBOSE("CQ interrupt vector masked");
 
@@ -782,74 +750,52 @@ bool msi_generation(){
     uintptr_t read_vaddr1 = virt_page_base(MSI_GEN_R);
     uintptr_t write_vaddr1 = virt_page_base(MSI_GEN_W);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
 
-    //# Induce a fault in the CQ
-    uint64_t cmd_entry[2];
-    cmd_entry[0]    = IOTINVAL | GVMA;
-
-    // Add PSCID (invalid for IOTINVAL.GVMA)
-    cmd_entry[0]    |= IOTINVAL_PSCV;
-
-    cmd_entry[1]    = 0;
-
-    // Read cqt
-    uint64_t cqt = read32(cqt_addr);
-
-    // Get address of the next entry to write in the CQ
-    uint64_t cqb = read64(cqb_addr);
-    uintptr_t cq_entry_base = ((cqb & CQB_PPN_MASK) << 2) | (cqt << 4);
-
-    // Write command to memory
-    write64(cq_entry_base, cmd_entry[0]);
-    write64(cq_entry_base + 8, cmd_entry[1]);
-
-    // Increment tail reg
-    cqt++;
-    write32(cqt_addr, cqt);
+    rv_iommu_induce_fault_cq();
 
     // Flush cache
     fence_i();
 
     //# Checks
     // Check whether cqcsr.cmd_ill was set
-    uint32_t cqcsr = read32(cqcsr_addr);
+    uint32_t cqcsr = rv_iommu_get_cqcsr();
     bool check = ((cqcsr & CQCSR_CMD_ILL) != 0);
     TEST_ASSERT("cqcsr.cmd_ill was set", check);
 
     // Check if ipsr.cip and ipsr.fip were set
-    check = ((read32(ipsr_addr) & (CIP_MASK | FIP_MASK)) == 3);
+    check = ((rv_iommu_get_ipsr() & (CIP_MASK | FIP_MASK)) == 3);
     TEST_ASSERT("ipsr.cip and ipsr.fip were set", check);
 
     // Check data for FQ vector
-    uint32_t fq_msi_data = read32((uintptr_t)msi_addr_fq);
-    check = (fq_msi_data == msi_data_fq);
+    uint32_t fq_msi_data = read32((uintptr_t)MSI_ADDR_FQ);
+    check = (fq_msi_data == MSI_DATA_FQ);
     TEST_ASSERT("MSI data corresponding to FQ interrupt vector matches", check);
 
     // Clear cqcsr.cmd_ill, ipsr.cip and ipsr.fip
-    write32(cqcsr_addr, cqcsr);
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_set_cqcsr(cqcsr);
+    rv_iommu_clear_ipsr_fip();
 
     // Clear mask of CQ interrupt vector
-    write32(msi_vec_ctl_cq_addr, 0x0UL);
+    rv_iommu_set_msi_cfg_tbl_vctl(3, 0x0UL);
 
     // Flush cache
     fence_i();
 
     // Check data for CQ vector after clearing mask
-    uint32_t cq_msi_data = read32((uintptr_t)msi_addr_cq);
-    check = (cq_msi_data == msi_data_cq);
+    uint32_t cq_msi_data = read32((uintptr_t)MSI_ADDR_CQ);
+    check = (cq_msi_data == MSI_DATA_CQ);
     TEST_ASSERT("MSI data corresponding to CQ interrupt vector matches after clearing mask", check);
 
     // Discard fault records written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     TEST_END();
@@ -865,12 +811,16 @@ bool hpm(){
 
     // Print the name of the test and create test_status variable
     TEST_START();
+    
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // Flush cache
@@ -878,46 +828,43 @@ bool hpm(){
 
     //# Clock counter overflow: WSI
     INFO("Configuring IGS to WSI");
-    // Configure the IOMMU to generate interrupts as WSI
-    uint32_t fctl = (1UL << 1);
-    write32(fctl_addr, fctl);
+    set_ig_wsi();
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     // Disable clock counter
-    uint32_t iocountinh = read32(iocountihn_addr) | 0x1UL;
-    write32(iocountihn_addr, iocountinh);
+    uint32_t iocountinh = rv_iommu_get_iocountihn() | 0x1UL;
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmcycles initial value
+    // We set it high to force it to overflow
     uint64_t iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
-    write64(iohpmcycles_addr, iohpmcycles);
+    rv_iommu_set_iohpmcycles(iohpmcycles);
 
     // Enable clock counter
     iocountinh &= (~0x1UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Monitor CY bit of iohpmcycles, wait for it to go high
     do
     {
-        iohpmcycles = read64(iohpmcycles_addr);
+        iohpmcycles = rv_iommu_get_iohpmcycles();
         printf("iohpmcycles value: %llx\n", iohpmcycles);
-        for (size_t i = 0; i < 10000; i++)
-            ;
     }
     while (!(iohpmcycles & (0x1ULL << 63)));
     
     // Check iocountovf bit
-    uint32_t iocountovf = read32(iocountovf_addr);
+    uint32_t iocountovf = rv_iommu_get_iocountovf();
     bool check = (iocountovf & 0x1UL);
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# Clock counter overflow: MSI
     // Configure the IOMMU to generate interrupts as MSI
@@ -925,21 +872,21 @@ bool hpm(){
     set_ig_msi();
 
     // Disable clock counter
-    iocountinh = read32(iocountihn_addr) | 0x1UL;
-    write32(iocountihn_addr, iocountinh);
+    iocountinh = rv_iommu_get_iocountihn() | 0x1UL;
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmcycles initial value
     iohpmcycles = 0x7FFFFFFFFFFFF000ULL;
-    write64(iohpmcycles_addr, iohpmcycles);
+    rv_iommu_set_iohpmcycles(iohpmcycles);
 
     // Enable clock counter
     iocountinh &= (~0x1UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Monitor CY bit of iohpmcycles, wait for it to go high
     do
     {
-        iohpmcycles = read64(iohpmcycles_addr);
+        iohpmcycles = rv_iommu_get_iohpmcycles();
         printf("iohpmcycles value: %llx\n", iohpmcycles);
         for (size_t i = 0; i < 10000; i++)
             ;
@@ -948,21 +895,21 @@ bool hpm(){
     while (!(iohpmcycles & (0x1ULL << 63)));
     
     // Check iocountovf bit
-    iocountovf = read32(iocountovf_addr);
+    iocountovf = rv_iommu_get_iocountovf();
     check = (iocountovf & 0x1UL);
     TEST_ASSERT("iocountovf.cy is set upon iohpmcycles overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmcycles overflow", check);
 
     // Check data for HPM vector
-    uint32_t hpm_msi_data = read32((uintptr_t)msi_addr_hpm);
-    check = (hpm_msi_data == msi_data_hpm);
+    uint32_t hpm_msi_data = read32((uintptr_t)MSI_ADDR_HPM);
+    check = (hpm_msi_data == MSI_DATA_HPM);
     TEST_ASSERT("MSI data corresponding to HPM interrupt vector matches", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# Event counter overflow
     INFO("Configuring IGS to WSI");
@@ -970,16 +917,16 @@ bool hpm(){
     set_ig_wsi();
 
     // Disable iohpmctr[3]
-    iocountinh = read32(iocountihn_addr) | 0x10UL;  // Event ctr 3
-    write32(iocountihn_addr, iocountinh);
+    iocountinh = rv_iommu_get_iocountihn() | 0x10UL;  // Event ctr 3
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Set iohpmctr[3] initial value
     uint64_t iohpmctr = 0xFFFFFFFFFFFFFFFFULL;
-    write64(iohpmctr_addr[3], iohpmctr);    // Event ctr 3
+    rv_iommu_set_iohpmctr(iohpmctr, 3);
 
     // Enable iohpmctr[3]
     iocountinh &= (~0x10UL);
-    write32(iocountihn_addr, iocountinh);
+    rv_iommu_set_iocountihn(iocountinh);
 
     // Trigger two-stage translation to increment counter
     uintptr_t read_paddr1 = phys_page_base(HPM_R);
@@ -988,26 +935,26 @@ bool hpm(){
     uintptr_t write_paddr1 = phys_page_base(HPM_W);
     uintptr_t write_vaddr1 = virt_page_base(HPM_W);
 
-    idma_setup(0, read_vaddr1, write_vaddr1, 8);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 8);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
 
     // Check iohpmevt.OF
-    uint64_t iohpmevt_3 = read64(iohpmevt_addr[3]);
+    uint64_t iohpmevt_3 = rv_iommu_get_iohpmevt(3);
     check = (iohpmevt_3 & IOHPMEVT_OF);
     TEST_ASSERT("iohpmevt_3.OF is set upon iohpmctr[3] overflow", check);
 
     // Check iocountovf.HPM[3]
-    iocountovf = read32(iocountovf_addr);
+    iocountovf = rv_iommu_get_iocountovf();
     check = (iocountovf & 0x10UL);
     TEST_ASSERT("iocountovf.hpm[3] is set upon iohpmctr[3] overflow", check);
 
     // Check ipsr.pmip and corresponding interrupt
-    check = ((read32(ipsr_addr) & PMIP_MASK) == 4);
+    check = ((rv_iommu_get_ipsr() & PMIP_MASK) == 4);
     TEST_ASSERT("ipsr.pmip set upon iohpmctr[3] overflow", check);
 
     // Clear ipsr
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     TEST_END();
 }
@@ -1036,17 +983,21 @@ bool mrif_support(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     //# TEST 1: MRIF transaction with second-stage only and MSI notice write
     // Configure data structures and IOMMU
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_bare();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_bare();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Bare | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr1 = phys_page_base(MSI_R3);
@@ -1058,8 +1009,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_1, 0);
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1074,11 +1025,11 @@ bool mrif_support(){
 
     //# TEST 2: MRIF transaction with two-stage and IE disabled (no MSI notice)
     // Enable first-stage translation
-    set_iosatp_sv39();
+    rv_iommu_set_iosatp_sv39();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // DDTC Invalidation
-    ddt_inval(false, idma_ids[0]);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
 
     // Get addresses
     uintptr_t read_paddr2 = phys_page_base(MSI_R4);
@@ -1090,8 +1041,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_2, 0);
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr2, write_vaddr2, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr2, write_vaddr2, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1113,8 +1064,8 @@ bool mrif_support(){
     // No need to configure data in physical addresses as transfer will fail
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr3, write_vaddr3, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr3, write_vaddr3, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1122,7 +1073,7 @@ bool mrif_support(){
     
     // Check fault record written in memory
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == MSI_PTE_INVALID);
@@ -1132,7 +1083,7 @@ bool mrif_support(){
     TEST_ASSERT("MRIF: Recorded IOVA matches with input IOVA", check_iova);
 
     // Clear ipsr.fip
-    write32(ipsr_addr, 0x7UL);
+    rv_iommu_clear_ipsr_fip();
 
     //# TEST 4: Transaction discarding mechanism using an invalid interrupt ID
 
@@ -1142,8 +1093,8 @@ bool mrif_support(){
     write32((uintptr_t)NOTICE_ADDR_1, 0);   // clear MSI notice
 
     // Config iDMA and init transfer
-    idma_setup(0, read_vaddr1, write_vaddr1, 4);
-    if (idma_exec_transfer(0) != 0)
+    idma_setup(dma_ut, read_vaddr1, write_vaddr1, 4);
+    if (idma_exec_transfer(dma_ut) != 0)
         {ERROR("iDMA misconfigured")}
     
     for (size_t i = 0; i < 100; i++)
@@ -1179,11 +1130,15 @@ bool dbg_interface(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
-    set_msi_flat();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
+    rv_iommu_set_msi_flat();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
 
     // Get virtual addresses
@@ -1198,86 +1153,86 @@ bool dbg_interface(){
 
     //# TEST 1: 4kiB translation
     // Setup translation
-    dbg_set_iova(vaddr1);
-    dbg_set_did(idma_ids[0]);
-    dbg_set_pv(false);
-    dbg_set_rw(true);
-    dbg_set_exe(false);
-    dbg_set_priv(true);
+    rv_iommu_dbg_set_iova(vaddr1);
+    rv_iommu_dbg_set_did(idma_ids[idma_idx]);
+    rv_iommu_dbg_set_pv(false);
+    rv_iommu_dbg_set_rw(true);
+    rv_iommu_dbg_set_exe(false);
+    rv_iommu_dbg_set_priv(true);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    bool check = (!dbg_is_fault() && !dbg_is_superpage() &&
-                    (dbg_translated_ppn() == (paddr1 >> 12)));
+    bool check = (!rv_iommu_dbg_req_fault() && !rv_iommu_dbg_req_is_superpage() &&
+                    (rv_iommu_dbg_translated_ppn() == (paddr1 >> 12)));
     TEST_ASSERT("DBG IF: First transfer response matches", check);
 
     //# TEST 2: 2MiB translation
     // Setup translation
-    dbg_set_iova(vaddr2);
-    dbg_set_exe(true);
-    dbg_set_priv(false);
+    rv_iommu_dbg_set_iova(vaddr2);
+    rv_iommu_dbg_set_exe(true);
+    rv_iommu_dbg_set_priv(false);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() & (~0x0FFULL)) == (paddr2 >> 12)));
+    check = (!rv_iommu_dbg_req_fault() && rv_iommu_dbg_req_is_superpage() &&
+                    ((rv_iommu_dbg_translated_ppn() & (~0x0FFULL)) == (paddr2 >> 12)));
     TEST_ASSERT("DBG IF: Second transfer response matches", check);
 
     // Check PPN encoding
-    check = (dbg_ppn_encode_x() == (uint8_t)8);
+    check = (rv_iommu_dbg_ppn_encode_x() == (uint8_t)8);
     TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
 
     //# TEST 3: 1GiB translation
     // Setup translation
-    dbg_set_iova(vaddr3);
-    dbg_set_exe(false);
+    rv_iommu_dbg_set_iova(vaddr3);
+    rv_iommu_dbg_set_exe(false);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (!dbg_is_fault() && dbg_is_superpage() &&
-                    ((dbg_translated_ppn() & (~0x1FFFFULL)) == (paddr3 >> 12)));
+    check = (!rv_iommu_dbg_req_fault() && rv_iommu_dbg_req_is_superpage() &&
+                    ((rv_iommu_dbg_translated_ppn() & (~0x1FFFFULL)) == (paddr3 >> 12)));
     TEST_ASSERT("DBG IF: Third transfer response matches", check);
 
     // Check PPN encoding
-    check = (dbg_ppn_encode_x() == (uint8_t)17);
+    check = (rv_iommu_dbg_ppn_encode_x() == (uint8_t)17);
     TEST_ASSERT("DBG IF: PPN correctly encoded to 2MiB", check);
 
     //# TEST 4: MSI translation using DBG IF (Error propagation)
     // Setup translation
-    dbg_set_iova(vaddr4);
+    rv_iommu_dbg_set_iova(vaddr4);
 
     // Trigger translation
-    dbg_trigger_translation();
+    rv_iommu_dbg_set_go();
 
     // Wait for the transaction to be completed
-    while (!dbg_is_complete())
+    while (!rv_iommu_dbg_req_is_complete())
         ;
     
     // Check response register
-    check = (dbg_is_fault());
+    check = (rv_iommu_dbg_req_fault());
     TEST_ASSERT("DBG IF: Fourth transfer generates fault, as it triggers MSI translation", check);
 
     // Check fault
     uint64_t fq_entry[4];
-    if (fq_read_record(fq_entry) != 0)
+    if (rv_iommu_fq_read_record(fq_entry) != 0)
         {ERROR("IOMMU did not generated a new FQ record when expected")}
 
     bool check_cause = ((fq_entry[0] & CAUSE_MASK) == TRANS_TYPE_DISALLOWED);
@@ -1296,6 +1251,10 @@ bool latency_test(){
 
     TEST_START();
 
+    /** Instantiate and map the DMA device */
+    size_t idma_idx = 0;
+    struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
     uint64_t stamp_start = 0;
     uint64_t stamp_end = 0;
     uint64_t avg_lat = 0;
@@ -1303,26 +1262,28 @@ bool latency_test(){
 
     fence_i();
     set_iommu_1lvl();
-    set_iosatp_sv39();
-    set_iohgatp_sv39x4();
+    rv_iommu_set_iosatp_sv39();
+    rv_iommu_set_iohgatp_sv39x4();
 
-    ddt_inval(false, 0);
-    iotinval_vma(false, false, false, 0, 0, 0);
-    iotinval_gvma(false, false, 0, 0);
+    rv_iommu_ddt_inval(false, idma_ids[idma_idx]);
+    rv_iommu_iotinval_vma(false, false, false, 0, 0, 0);
+    rv_iommu_iotinval_gvma(false, false, 0, 0);
 
-    write64(iohpmctr_addr[0], (uint64_t) 0);
-    write64(iohpmctr_addr[1], (uint64_t) 0);
-    write64(iohpmctr_addr[2], (uint64_t) 0);
-    write64(iohpmctr_addr[3], (uint64_t) 0);
-    write64(iohpmctr_addr[4], (uint64_t) 0);
+    rv_iommu_set_iohpmctr(0, 0);
+    rv_iommu_set_iohpmctr(0, 1);
+    rv_iommu_set_iohpmctr(0, 2);
+    rv_iommu_set_iohpmctr(0, 3);
+    rv_iommu_set_iohpmctr(0, 5);
 
     stamp = CSRR(CSR_CYCLES);
     srand(stamp);
 
     for (size_t i = 0; i < N_TRANSFERS; i++)
     {
-        // Get random indexes
-        size_t dev_index = rand() % N_DMA;
+        /** Instantiate and map the DMA device */
+        size_t idma_idx = rand() % N_DMA;
+        struct idma *dma_ut = (void*)idma_addr[idma_idx];
+
         size_t pt_index = rand() % N_MAPPINGS;
 
         //# Get a set of Guest-Virtual-to-Supervisor-Physical mappings
@@ -1337,22 +1298,19 @@ bool latency_test(){
         //# Write known values to memory
         write64(read_paddr, 0xDEADBEEF);
         write64(write_paddr, 0);
-
-        write64(idma_src[dev_index], (uint64_t)read_vaddr);     // Source address
-        write64(idma_dest[dev_index], (uint64_t)write_vaddr);   // Destination address
-        write64(idma_nbytes[dev_index], 8);                     // N of bytes to be transferred
-        write64(idma_config[dev_index], 0);                     // iDMA config: Disable decouple, deburst and serialize
+        
+        idma_setup(dma_ut, (uint64_t)read_vaddr, (uint64_t)write_vaddr, 8);
 
         // Start stamp
         stamp_start = CSRR(CSR_CYCLES);
 
         // Check if iDMA was set up properly and init transfer
-        uint64_t trans_id = read64(idma_nextid[dev_index]);
+        uint64_t trans_id = read64((uintptr_t)&dma_ut->next_transfer_id);
         if (!trans_id)
             {ERROR("iDMA misconfigured")}
 
         // Poll transfer status
-        while (read64(idma_done[dev_index]) != trans_id)
+        while (read64((uintptr_t)&dma_ut->last_transfer_id_complete) != trans_id)
             ;
 
         // End stamp
@@ -1368,11 +1326,11 @@ bool latency_test(){
 
     printf("Transfer average latency (in cycles): %llu\n", avg_lat/N_TRANSFERS);
 
-    printf("Untranslated Requests cnt: %llu\n", read64(iohpmctr_addr[0]));
-    printf("IOTLB miss cnt: %llu\n",            read64(iohpmctr_addr[1]));
-    printf("DDT Walks cnt: %llu\n",             read64(iohpmctr_addr[2]));
-    printf("First-stage PT walk cnt: %llu\n",   read64(iohpmctr_addr[3]));
-    printf("Second-stage PT walk cnt: %llu\n",  read64(iohpmctr_addr[4]));
+    printf("Untranslated Requests cnt: %llu\n", rv_iommu_get_iohpmctr(0));
+    printf("IOTLB miss cnt: %llu\n",            rv_iommu_get_iohpmctr(1));
+    printf("DDT Walks cnt: %llu\n",             rv_iommu_get_iohpmctr(2));
+    printf("First-stage PT walk cnt: %llu\n",   rv_iommu_get_iohpmctr(3));
+    printf("Second-stage PT walk cnt: %llu\n",  rv_iommu_get_iohpmctr(4));
 
     TEST_END();
 }

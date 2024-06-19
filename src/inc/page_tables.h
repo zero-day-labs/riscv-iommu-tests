@@ -1,8 +1,11 @@
 #ifndef PAGE_TABLES_H
 #define PAGE_TABLES_H
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 
+/***************************************************************************************************
+ *                             RISC-V Page Tables Related Macros                                   *
+ **************************************************************************************************/
 #define PT_SIZE (PAGE_SIZE)
 #define PAGE_ADDR_MSK (~(PAGE_SIZE - 1))  // ... 1111 1111 0000 0000 0000
 #define PAGE_SHIFT (12)
@@ -19,28 +22,28 @@
 #define PTE_INDEX(LEVEL, ADDR) (((ADDR) >> PTE_INDEX_SHIFT(LEVEL)) & (0x1FF))
 #define PTE_FLAGS_MSK BIT_MASK(0, 8)
 
-#define PTE_VALID (1ULL << 0)
-#define PTE_READ (1ULL << 1)
-#define PTE_WRITE (1ULL << 2)
+#define PTE_VALID   (1ULL << 0)
+#define PTE_READ    (1ULL << 1)
+#define PTE_WRITE   (1ULL << 2)
 #define PTE_EXECUTE (1ULL << 3)
-#define PTE_USER (1ULL << 4)
-#define PTE_GLOBAL (1ULL << 5)
-#define PTE_ACCESS (1ULL << 6)
-#define PTE_DIRTY (1ULL << 7)
+#define PTE_USER    (1ULL << 4)
+#define PTE_GLOBAL  (1ULL << 5)
+#define PTE_ACCESS  (1ULL << 6)
+#define PTE_DIRTY   (1ULL << 7)
 
-#define PTE_V PTE_VALID
-#define PTE_AD (PTE_ACCESS | PTE_DIRTY)
-#define PTE_U PTE_USER
-#define PTE_R (PTE_READ)
-#define PTE_RW (PTE_READ | PTE_WRITE)
-#define PTE_X (PTE_EXECUTE)
-#define PTE_RX (PTE_READ | PTE_EXECUTE)
-#define PTE_RWX (PTE_READ | PTE_WRITE | PTE_EXECUTE)
+#define PTE_V       PTE_VALID
+#define PTE_AD      (PTE_ACCESS | PTE_DIRTY)
+#define PTE_U       PTE_USER
+#define PTE_R       (PTE_READ)
+#define PTE_RW      (PTE_READ | PTE_WRITE)
+#define PTE_X       (PTE_EXECUTE)
+#define PTE_RX      (PTE_READ | PTE_EXECUTE)
+#define PTE_RWX     (PTE_READ | PTE_WRITE | PTE_EXECUTE)
 
 #define PTE_PPN_MSK (0x3FFFFFFFFFFC00ULL)
 
-#define PTE_RSW_OFF 8
-#define PTE_RSW_LEN 2
+#define PTE_RSW_OFF (8)
+#define PTE_RSW_LEN (2)
 #define PTE_RSW_MSK BIT_MASK(PTE_RSW_OFF, PTE_RSW_LEN)
 
 #define TEST_VADDR_1GIB     (0x80000000ULL)    // vpn[2] = 2
@@ -56,11 +59,6 @@
 #define STAGE2_PERM_1GIB    (PTE_V | PTE_AD | PTE_U | PTE_RWX)
 #define STAGE2_PERM_2MIB    (PTE_V | PTE_AD | PTE_U | PTE_RWX)
 
-/* ------------------------------------------------------------- */
-
-// Base Supervisor Physical Address of 4-kiB pages
-#define TEST_PPAGE_BASE (MEM_BASE+(MEM_SIZE/2))     // 0x8000_0000 + 0x0800_0000 = 0x88000000
-
 // Base Guest Virtual Address of 4-kiB pages:
 // Independently of the base address in satp
 // PPN[2] selects the fourth entry of the first-stage root table
@@ -69,6 +67,50 @@
 // | PPN[2] | PPN[1] | PPN[0] | OFF |
 // |  100b  |   '0   |   '0   |  '0 |
 #define TEST_VPAGE_BASE (0x100000000)
+
+/***************************************************************************************************
+ *                                MSI Page Tables Related Macros                                   *
+ **************************************************************************************************/
+
+// Number of entries of the MSI Page Table (PoT, associated with N of set bits in the MSI mask)
+#define MSI_N_ENTRIES       (32)
+
+// SPA of the base Interrupt File, i.e., physical address of the page (IF) pointed to by the first entry of the MSI PT.
+// 0x8000_0000 + 0x0400_0000 = 0x84000000
+#define MSI_BASE_IF_SPA (MEM_BASE+(MEM_SIZE/4))
+
+// MSI PTE fields
+#define MSI_PTE_VALID       (1ULL << 0 )    // Valid
+#define MSI_PTE_BT_MODE     (3ULL << 1 )    // MSI Mode (3 for basic-translate mode)
+#define MSI_PTE_MRIF_MODE   (1ULL << 1 )    // MSI Mode (1 for MRIF)
+#define MSI_PTE_CUSTOM      (1ULL << 63)    // Custom format (Not used)
+
+#define MSI_PTE_MRIF_ADDR_MASK  (0x3FFFFFFFFFFF80ULL)
+#define MSI_PTE_NID9_0_MASK     (0x3FFULL)
+#define MSI_PTE_NPPN_MASK       (0x3FFFFFFFFFFC00ULL)
+#define MSI_PTE_NID10_MASK      (1ULL << 60)
+
+#define NOTICE_ADDR_1           (0x83008000ULL)
+#define NOTICE_ADDR_2           (0x83009000ULL)
+#define NOTICE_DATA             (0x7ACUL)
+
+#define INT_ID_1                (300UL)
+#define INT_OFFSET_1            ((INT_ID_1 >> 2) & (~0xFUL))
+#define INT_IP_IDX_1            (INT_OFFSET_1 / 8)
+#define INT_IE_IDX_1            (INT_IP_IDX_1 + 1)
+#define INT_MASK_1              (1ULL << (INT_ID_1 & 0x3FUL))
+
+#define INT_ID_2                (600UL)
+#define INT_OFFSET_2            ((INT_ID_2 >> 2) & (~0xFUL))
+#define INT_IP_IDX_2            (INT_OFFSET_2 / 8)
+#define INT_IE_IDX_2            (INT_IP_IDX_2 + 1)
+#define INT_MASK_2              (1ULL << (INT_ID_2 & 0x3FUL))
+
+// Base Supervisor Physical Address of 4-kiB pages
+#define TEST_PPAGE_BASE (MEM_BASE+(MEM_SIZE/2))     // 0x8000_0000 + 0x0800_0000 = 0x88000000
+
+/***************************************************************************************************
+ **************************************************************************************************/
 
 enum test_page { 
     IOMMU_OFF_R,
@@ -141,9 +183,11 @@ static inline uintptr_t phys_page_base(enum test_page tp){
     }
 }
 
-void s1pt_init();
-void s2pt_init();
-void s1pt_switch();
-void s2pt_switch();
+void s1pt_init(void);
+void s2pt_init(void);
+void s1pt_switch(void);
+void s2pt_switch(void);
+void msi_pt_init(void);
+void mrif_init(void);
 
 #endif /* PAGE_TABLES_H */

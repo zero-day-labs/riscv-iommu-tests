@@ -1,16 +1,32 @@
 #ifndef DEVICE_CONTEXTS_H
 #define DEVICE_CONTEXTS_H
 
-#include <iommu_tests.h>
+#include <rv_iommu_tests.h>
 #include <rv_iommu.h>
 
 // Number of entries of the root DDT (4-kiB / 64 bytes p/ entry)
 #if (MSI_TRANSLATION == 1)
 # define DDT_N_ENTRIES      (0x1000 / 64)   // 64 entries
-# define DC_SIZE            (8)
+typedef struct ddt{
+    uint64_t tc;                // translation control
+    uint64_t iohgatp;           // IO hypervisor guest address translation and protection
+    uint64_t ta;                // translation attributes
+    uint64_t fsc;               // first-stage context
+    uint64_t msiptp;            // MSI page-table pointer
+    uint64_t msi_addr_mask;     // MSI address mask
+    uint64_t msi_addr_pattern;  // MSI address pattern
+    uint64_t reserved;
+}ddt_t;
+#define DC_SIZE (8)
 #else
 # define DDT_N_ENTRIES      (0x1000 / 32)   // 128 entries
 # define DC_SIZE            (4)
+typedef struct ddt{
+    uint64_t tc; // translation control
+    uint64_t iohgatp; // IO hypervisor guest address translation and protection
+    uint64_t ta; // translation attributes
+    uint64_t fsc; // first-stage context
+}ddt_t;
 #endif
 
 // iosatp encoding to configure DC.fsc
@@ -61,11 +77,8 @@ enum test_dc {
     TEST_DC_MAX
 };
 
-void ddt_init(void);
-void set_iosatp_sv39(void);
-void set_iohgatp_sv39x4(void);
-void set_iosatp_bare(void);
-void set_iohgatp_bare(void);
-void set_msi_flat(void);
+extern uint64_t test_dc_tc_table[];
+extern uint64_t GSCID_ARRAY[];
+extern uint64_t PSCID_ARRAY[];
 
 #endif  /* DEVICE_CONTEXTS_H */

@@ -1,4 +1,4 @@
-#include <iommu_pts.h>
+#include <page_tables.h>
 
 
 #if ((MEM_BASE & (SUPERPAGE_SIZE(0)-1)) != 0)
@@ -58,7 +58,14 @@ struct {
 
 // 6x512 PTEs
 pte_t s1pt[6][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE)));
-
+// Root table (Sv39x4) (2048 PTEs pointing to 16-kiB pages)
+pte_t s2pt_root[PAGE_SIZE*4/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE*4)));
+// n-level tables (5x512 PTEs pointing to 4-kiB pages)
+pte_t s2pt[5][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE)));
+// 32 MSI PTEs, each PTE is 16-bytes, base address aligned to 4-kiB
+uint64_t msi_pt[MSI_N_ENTRIES * 2] __attribute__((aligned(PAGE_SIZE)));
+// MRIF
+uint64_t mrif[64] __attribute__((aligned(512)));
 
 /**
  *  Setup first-stage PTEs
@@ -159,12 +166,6 @@ void s1pt_init(){
         addr +=  SUPERPAGE_SIZE(1);
     }
 }
-
-// Root table (Sv39x4) (2048 PTEs pointing to 16-kiB pages)
-pte_t s2pt_root[PAGE_SIZE*4/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE*4)));
-
-// n-level tables (5x512 PTEs pointing to 4-kiB pages)
-pte_t s2pt[5][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE)));
 
 /**
  *  Setup second-stage PTEs 
@@ -285,4 +286,65 @@ void s2pt_switch(){
     pte_t temp = s2pt[2][SWITCH1];
     s2pt[2][SWITCH1] = s2pt[2][SWITCH2];
     s2pt[2][SWITCH2] = temp;
+}
+
+void msi_pt_init()
+{
+    uintptr_t addr = MSI_BASE_IF_SPA;
+
+    // Init all entries to zero
+    for (int i = 0; i < (MSI_N_ENTRIES * 2); i++)
+    {
+        msi_pt[i] = 0;
+    }
+
+    // Fill MSI PT with entries in BT mode.
+    for(int i = 0; i < (MSI_N_ENTRIES * 2); i+=2)
+    {
+        msi_pt[i]   = MSI_PTE_VALID | MSI_PTE_BT_MODE | (addr >> 2);
+        msi_pt[i+1] = 0;
+        addr +=  PAGE_SIZE;
+    }
+
+    fence_i();
+
+    // Configure MSI PTEs in MRIF mode
+    // MSI GPA 3                0x100180ULL        0001_0000_0000_0001_1000_0000 (IFN 10100 - 20)
+    // Validate two-stage MSI translation
+    msi_pt[40]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[40+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
+    // MSI GPA 4                0x100182ULL        0001_0000_0000_0001_1000_0010 (IFN 10101 - 21)
+    // Validate second-stage-only MSI translation
+    msi_pt[42]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK);
+    msi_pt[42+1] = (NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_2) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    ((NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
+    // MSI GPA 5                0x100186ULL        0001_0000_0000_0001_1000_0110 (IFN 10111 - 23)
+    // Validate error propagation
+    msi_pt[46]   = MSI_PTE_VALID | MSI_PTE_MRIF_MODE | ((((uintptr_t)mrif) >> 2) & MSI_PTE_MRIF_ADDR_MASK) | MSI_PTE_CUSTOM;
+    msi_pt[46+1] = ((uint64_t)NOTICE_DATA & MSI_PTE_NID9_0_MASK) | ((((uintptr_t)NOTICE_ADDR_1) >> 2) & MSI_PTE_NPPN_MASK) | 
+                    (((uint64_t)NOTICE_DATA << 50) & MSI_PTE_NID10_MASK);
+
+    // DC.msiptp is programed with the base address of msi_pt[] in device_contexts.c
+}
+
+/**
+ *  Configure IP and IE bits within the MRIF
+ */
+void mrif_init()
+{
+    // Interrupt Identity 1
+    // IP
+    mrif[INT_IP_IDX_1] = 0;
+    // IE
+    mrif[INT_IE_IDX_1] = INT_MASK_1;
+
+    // Interrupt Identity 2
+    // IP
+    mrif[INT_IP_IDX_2] = 0;
+    // IE
+    // mrif[INT_IE_IDX_2] = INT_MASK_2;
+    mrif[INT_IE_IDX_2] = 0;
 }

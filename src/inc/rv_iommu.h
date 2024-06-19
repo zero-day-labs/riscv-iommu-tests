@@ -1,7 +1,23 @@
 #ifndef _RV_IOMMU_H_
 #define _RV_IOMMU_H_
 
-#include <iommu_tests.h>
+#include <rv_iommu_cq.h>
+#include <rv_iommu_fq.h>
+#include <rv_iommu_dc.h>
+#include <rv_iommu_hpm.h>
+#include <rv_iommu_tests.h>
+
+#define IOMMU_MAX_HPM_COUNTERS 31
+
+// Number of entries in the CQ. Must be POT
+#define CQ_N_ENTRIES    (64 )
+// Size of the queue represented as Log2(64)-1 = 5
+#define CQ_LOG2SZ_1     (5  )
+
+// Number of entries in the FQ. Must be POT
+#define FQ_N_ENTRIES    (64)
+// Size of the queue represented as Log2(64)-1 = 5
+#define FQ_LOG2SZ_1     (5 )
 
 // Mask for ddtp.PPN (ddtp[53:10])
 #define DDTP_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
@@ -86,6 +102,21 @@
 
 #define IOMMU_REG_ADDR(OFF)     (IOMMU_BASE_ADDR + OFF)
 
+#define IOFENCE_DATA    (0xABCDEFUL)
+
+#define MSI_ADDR_CQ   (0x83000000ULL)
+#define MSI_DATA_CQ   (0x00ABCDEFUL)
+/** we start CQ with vctl set to test if the interrupt is correctly blocked */
+#define MSI_VCTL_CQ   (0x1UL)
+
+#define MSI_ADDR_FQ   (0x83001000ULL)
+#define MSI_DATA_FQ   (0xFEDCBA00UL)
+#define MSI_VCTL_FQ   (0x0UL)
+
+#define MSI_ADDR_HPM   (0x83002000ULL)
+#define MSI_DATA_HPM   (0xDEADBEEFUL)
+#define MSI_VCTL_HPM   (0x0UL)
+
 void init_iommu(void);
 
 void set_iommu_off(void);
@@ -93,5 +124,57 @@ void set_iommu_bare(void);
 void set_iommu_1lvl(void);
 void set_ig_wsi();
 void set_ig_msi();
+uint32_t rv_iommu_get_ipsr();
+void rv_iommu_clear_ipsr_fip();
+
+/** MSI config table related functions */
+void rv_iommu_set_msi_cfg_tbl_vctl(size_t msi_tlb_entry, uint32_t new_vctl);
+
+/** Device Context Related Functions*/
+void rv_iommu_set_iosatp_sv39(void);
+void rv_iommu_set_iohgatp_sv39x4(void);
+void rv_iommu_set_iosatp_bare(void);
+void rv_iommu_set_iohgatp_bare(void);
+void rv_iommu_set_msi_flat(void);
+
+/** HPM-related functions */
+uint32_t rv_iommu_get_iocountovf();
+uint32_t rv_iommu_get_iocountihn();
+void rv_iommu_set_iocountihn(uint32_t iocountihn_new);
+uint64_t rv_iommu_get_iohpmcycles();
+void rv_iommu_set_iohpmcycles(uint64_t iohpmcycles_new);
+uint64_t rv_iommu_get_iohpmctr (size_t counter_idx);
+void rv_iommu_set_iohpmctr(uint64_t iohpmctr_new, size_t counter_idx);
+uint64_t rv_iommu_get_iohpmevt (size_t counter_idx);
+void rv_iommu_set_iohpmevt(uint64_t iohpmevt_new, size_t counter_idx);
+
+/** Debug interface */
+void rv_iommu_dbg_set_iova(uint64_t iova);
+void rv_iommu_dbg_set_did(uint64_t device_id);
+void rv_iommu_dbg_set_pv(bool pv);
+void rv_iommu_dbg_set_priv(bool priv);
+void rv_iommu_dbg_set_rw(bool rw);
+void rv_iommu_dbg_set_exe(bool exe);
+void rv_iommu_dbg_set_go(void);
+bool rv_iommu_dbg_req_is_complete(void);
+uint8_t rv_iommu_dbg_req_fault(void);
+uint8_t rv_iommu_dbg_req_is_superpage(void);
+uint64_t rv_iommu_dbg_translated_ppn(void);
+uint8_t rv_iommu_dbg_ppn_encode_x(void);
+
+/** Command-Queue-related functions */
+void rv_iommu_cq_init(void);
+uint32_t rv_iommu_get_cqh(void);
+uint32_t rv_iommu_get_cqcsr(void);
+void rv_iommu_set_cqcsr(uint32_t new_cqcsr);
+void rv_iommu_induce_fault_cq(void);
+void rv_iommu_ddt_inval(bool dv, uint64_t device_id);
+void rv_iommu_iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid);
+void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
+void rv_iommu_iofence_c(bool wsi, bool av);
+uint32_t rv_iommu_get_iofence(void);
+
+/** fault-Queue-related functions */
+int rv_iommu_fq_read_record(uint64_t *buf);
 
 #endif  /* _RV_IOMMU_H_ */

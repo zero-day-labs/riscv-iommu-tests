@@ -1,13 +1,5 @@
-#ifndef COMMAND_QUEUE_H
-#define COMMAND_QUEUE_H
-
-#include <iommu_tests.h>
-#include <rv_iommu.h>
-
-// Number of entries in the CQ. Must be POT
-#define CQ_N_ENTRIES    (64 )
-// Size of the queue represented as Log2(64)-1 = 5
-#define CQ_LOG2SZ_1     (5  )
+#ifndef CMD_QUEUE_H
+#define CMD_QUEUE_H
 
 // Mask for cqb.PPN (cqb[53:10])
 #define CQB_PPN_MASK    (0x3FFFFFFFFFFC00ULL)
@@ -39,17 +31,9 @@
 #define IOFENCE_WSI     (1ULL << 11)
 #define IOFENCE_PR      (1ULL << 12)
 #define IOFENCE_PW      (1ULL << 13)
-#define IOFENCE_DATA    (0xABCDEFUL)
 #define IOFENCE_ADDR    (0x82000000ULL)
 
 #define IODIR_DV        (1ULL << 33)
-
-// offsets
-#define IOTINVAL_PSCID_OFF  (12)
-#define IOTINVAL_GSCID_OFF  (44)
-#define IOTINVAL_IOVA_OFF   (10)
-
-#define IODIR_DID_OFF       (40)
 
 // cqcsr masks
 #define CQCSR_CQEN          (1UL << 0)
@@ -61,12 +45,11 @@
 #define CQCSR_CQON          (1UL << 16)
 #define CQCSR_BUSY          (1UL << 17)
 
-extern uint64_t command_queue[];
+// offsets
+#define IOTINVAL_PSCID_OFF  (12)
+#define IOTINVAL_GSCID_OFF  (44)
+#define IOTINVAL_IOVA_OFF   (10)
 
-void cq_init(void);
-void ddt_inval(bool dv, uint64_t device_id);
-void iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid);
-void iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid);
-void iofence_c(bool wsi, bool av, uint64_t addr, uint64_t data);
+#define IODIR_DID_OFF       (40)
 
-#endif  /* COMMAND_QUEUE_H*/
+#endif

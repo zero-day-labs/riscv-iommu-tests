@@ -15,6 +15,9 @@ endif
 
 build_dir:=build/$(PLAT)
 plat_dir:=platform/$(PLAT)
+asm_dir:=src/asm
+TARGET := $(build_dir)/rv_iommu_test
+
 ifeq ($(wildcard $(plat_dir)),)
 $(error unsupported platform $(PLAT))
 else
@@ -30,14 +33,19 @@ ifneq ($(PREV_LOG_LEVEL), $(LOG_LEVEL))
 pre_targets += clean_objs
 endif
 
-TARGET := $(build_dir)/rv_iommu_test
-c_srcs := main.c iommu_pts.c rvh_test.c command_queue.c\
-	iommu_tests.c test_register.c device_contexts.c\
-	fault_queue.c msi_pts.c rv_iommu.c idma.c dbg_if.c\
-	$(addprefix $(plat_dir)/, $(notdir $(wildcard $(plat_dir)/*.c)))
-asm_srcs := boot.S handlers.S  $(wildcard $(plat_dir)/*.S)
+# Include all architecture-related C source files
+c_srcs = $(wildcard src/*.c)
+# Include all platform-related C source files
+c_srcs += $(wildcard $(plat_dir)/*.c)
+
+# Include all architecture-related assembly source files
+asm_srcs := $(wildcard $(asm_dir)/*.S) $(wildcard $(plat_dir)/*.S)
+# Include all platform-related assembly source files
+asm_srcs += $(wildcard $(plat_dir)/*.S)
+
 ld_file:=linker.ld
-inc_dirs := ./inc $(plat_dir)/inc
+
+inc_dirs := ./src/inc $(plat_dir)/inc
 inc_dirs := $(addprefix -I, $(inc_dirs))
 
 objs:=

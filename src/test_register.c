@@ -1,4 +1,4 @@
-#include <rvh_test.h>
+#include <rvh_test.h> // necessary to use TEST_REGISTER macro
 
 /**
  *  List of tests.
