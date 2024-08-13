@@ -111,11 +111,7 @@ void rv_iommu_set_msi_cfg_tbl_vctl(size_t msi_tlb_entry, uint32_t new_vctl)
 
 static void rv_iommu_ddt_init(void)
 {
-    // Init all entries to zero
-    for (int i = 0; i < DDT_N_ENTRIES; i++)
-    {
-        root_ddt[i].tc = 0;
-    }
+    fence_i();
 
     // Configure DCs in the root DDT (1LVL mode)
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
@@ -138,6 +134,8 @@ static void rv_iommu_ddt_init(void)
 
 void rv_iommu_set_iosatp_bare(void)
 {
+    fence_i();
+
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
         root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
@@ -147,6 +145,8 @@ void rv_iommu_set_iosatp_bare(void)
 
 void rv_iommu_set_iosatp_sv39()
 {
+    fence_i();
+
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
         root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
@@ -156,6 +156,8 @@ void rv_iommu_set_iosatp_sv39()
 
 void rv_iommu_set_iohgatp_bare()
 {
+    fence_i();
+
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
         root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
@@ -165,6 +167,8 @@ void rv_iommu_set_iohgatp_bare()
 
 void rv_iommu_set_iohgatp_sv39x4()
 {
+    fence_i();
+
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
         root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);
@@ -176,6 +180,8 @@ void rv_iommu_set_msi_off()
 {
     if (MSI_TRANSLATION == 1)
     {
+        fence_i();
+
         for (int i = DID_MIN; i < DID_MAX + 1; i++)
         {
             root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
@@ -189,6 +195,8 @@ void rv_iommu_set_msi_flat()
 {
     if (MSI_TRANSLATION == 1)
     {
+        fence_i();
+        
         for (int i = DID_MIN; i < DID_MAX + 1; i++)
         {
             root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);
@@ -206,6 +214,8 @@ void rv_iommu_set_msi_flat()
 *******************************************************************************************************/
 static inline void rv_iommu_write_command_in_queue(command_t new_cmd)
 {
+    fence_i();
+
     uint32_t cqt = read32((uintptr_t)&iommu->cqt);
     // Get address of the next entry to write in the CQ
     uintptr_t cq_entry_base = ((uintptr_t)command_queue & CQ_PPN_MASK) | (cqt << 4);
@@ -221,6 +231,8 @@ static inline void rv_iommu_write_command_in_queue(command_t new_cmd)
 
 void rv_iommu_cq_init(void)
 {
+    fence_i();
+
     // Configure cqb with base PPN of the queue and size as log2(N)
     write64((uintptr_t)&iommu->cqb, ((((uintptr_t)command_queue) >> 2) & CQB_PPN_MASK) | CQ_LOG2SZ_1);
 
@@ -253,6 +265,9 @@ void rv_iommu_induce_fault_cq(void)
 {
     //# Induce a fault in the CQ
     command_t new_cmd;
+
+    fence_i();
+
     new_cmd[0]    = IOTINVAL | GVMA;
 
     // Add PSCID (invalid for IOTINVAL.GVMA)
@@ -266,6 +281,8 @@ void rv_iommu_induce_fault_cq(void)
 void rv_iommu_ddt_inval(bool dv, uint64_t device_id)
 {
     command_t new_cmd;
+
+    fence_i();
 
     INFO("Writing IODIR.INVAL_DDT to CQ")
     new_cmd[0]    = IODIR | INVAL_DDT;
@@ -281,6 +298,8 @@ void rv_iommu_ddt_inval(bool dv, uint64_t device_id)
 void rv_iommu_iotinval_vma(bool av, bool gv, bool pscv, uint64_t addr, uint64_t gscid, uint64_t pscid)
 {
     command_t new_cmd;
+
+    fence_i();
 
     INFO("Writing IOTINVAL.VMA to CQ")
     new_cmd[0]    = IOTINVAL | VMA;
@@ -306,6 +325,8 @@ void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid)
 {
     command_t new_cmd;
 
+    fence_i();
+
     INFO("Writing IOTINVAL.GVMA to CQ")
     new_cmd[0]    = IOTINVAL | GVMA;
 
@@ -325,6 +346,8 @@ void rv_iommu_iotinval_gvma(bool av, bool gv, uint64_t addr, uint64_t gscid)
 void rv_iommu_iofence_c(bool wsi, bool av)
 {
     command_t new_cmd;
+
+    fence_i();
 
     INFO("Writing IOFENCE to CQ")
     new_cmd[0]    = IOFENCE | FUNC3_C;
@@ -355,6 +378,8 @@ static void rv_iommu_fq_init(void)
 {
     uint64_t   fqb;
 
+    fence_i();
+
     // Configure fqb with base PPN of the queue and size as log2(N)
     fqb = ((((uintptr_t)fault_queue) >> 2) & FQB_PPN_MASK) | FQ_LOG2SZ_1;
     write64((uintptr_t)&iommu->fqb, fqb);
@@ -374,6 +399,7 @@ int rv_iommu_fq_read_record(uint64_t *buf)
 {
     // Read fqh
     uint32_t fqh = read32((uintptr_t)&iommu->fqh);
+    printf("Current fqh: %lu\n", fqh);
 
     // Read fqt
     uint32_t fqt = read32((uintptr_t)&iommu->fqt);
@@ -381,6 +407,8 @@ int rv_iommu_fq_read_record(uint64_t *buf)
     if (fqh != fqt) {
         // Get address of the next entry in the FQ
         uintptr_t fq_entry_base = ((uintptr_t)fault_queue & FQ_PPN_MASK) | (fqh << 5);
+
+        fence_i();
 
         // Read FQ record by DWs
         buf[0] = read64(fq_entry_base + 0 );

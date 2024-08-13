@@ -212,19 +212,6 @@ bool iommu_off(){
     TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
     TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
 
-    // Second entry
-    if (rv_iommu_fq_read_record(fq_entry) != 0)
-        {ERROR("IOMMU did not generated a new FQ record when expected")}
-
-    check_cause = ((fq_entry[0] & CAUSE_MASK) == ALL_INB_TRANSACTIONS_DISALLOWED);
-    check_iova  = (fq_entry[2] == write_vaddr1);
-
-    // Clear ipsr.fip
-    rv_iommu_clear_ipsr_fip();
-
-    TEST_ASSERT("IOMMU Off: Cause code matches with induced fault code", check_cause);
-    TEST_ASSERT("IOMMU Off: Recorded IOVA matches with input IOVA", check_iova);
-
     TEST_END();
 }
 

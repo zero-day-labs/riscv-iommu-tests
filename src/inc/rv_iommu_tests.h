@@ -24,8 +24,8 @@
 
 // Min and max device IDs of DMA devices in the platform.
 // DDT entries are created for device IDs in [DID_MIN, DID_MAX]
-#define DID_MIN             (1)
-#define DID_MAX             (15)
+#define DID_MIN             (9)
+#define DID_MAX             (11)
 
 // Interrupt vectors
 #define CQ_INT_VECTOR       (0x03ULL)
