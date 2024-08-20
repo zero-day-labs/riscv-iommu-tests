@@ -1,3 +1,4 @@
+.option arch, +zicsr
 
 .section .boot, "ax" 
 .globl _boot
