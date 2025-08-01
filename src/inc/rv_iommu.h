@@ -121,6 +121,7 @@ void init_iommu(void);
 
 void set_iommu_off(void);
 void set_iommu_bare(void);
+void set_iommu_3lvl(void);
 void set_iommu_1lvl(void);
 void set_ig_wsi();
 void set_ig_msi();
@@ -136,7 +137,7 @@ void rv_iommu_set_iohgatp_sv39x4(void);
 void rv_iommu_set_iosatp_bare(void);
 void rv_iommu_set_iohgatp_bare(void);
 void rv_iommu_set_msi_flat(void);
-
+void rv_iommu_ddt_init(void);
 /** HPM-related functions */
 uint32_t rv_iommu_get_iocountovf();
 uint32_t rv_iommu_get_iocountihn();

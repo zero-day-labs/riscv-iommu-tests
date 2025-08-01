@@ -74,7 +74,8 @@ uint64_t command_queue[CQ_N_ENTRIES * 2 * sizeof(uint64_t)] __attribute__((align
 uint64_t fault_queue[FQ_N_ENTRIES * 4 * sizeof(uint64_t)] __attribute__((aligned(PAGE_SIZE)));
 
 // DDT
-ddt_t root_ddt[DDT_N_ENTRIES] __attribute__((aligned(PAGE_SIZE)));
+volatile ddt_t ddt[DDT_N_ENTRIES] __attribute__((aligned(PAGE_SIZE), section(".ptables_noinit")));
+volatile uint64_t root_ddt[2][512] __attribute__((aligned(PAGE_SIZE), section(".ptables_noinit")));
 
 // First and second-stage page tables (Already configured)
 extern pte_t s1pt[][512];
@@ -109,27 +110,19 @@ void rv_iommu_set_msi_cfg_tbl_vctl(size_t msi_tlb_entry, uint32_t new_vctl)
 *                                   Command-Queue Related Functions                                    *
 *******************************************************************************************************/
 
-static void rv_iommu_ddt_init(void)
+void rv_iommu_ddt_init(void)
 {
     fence_i();
-
-    // Configure DCs in the root DDT (1LVL mode)
-    for (int i = DID_MIN; i < DID_MAX + 1; i++)
+    for (int i = 0; i < 6 + 1; i++)
     {
-        root_ddt[i].tc = test_dc_tc_table[BASIC];
-        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
-        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
-        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
-        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
-
-        if (MSI_TRANSLATION == 1)
-        {
-            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
-            root_ddt[i].msi_addr_mask = MSI_ADDR_MASK;
-            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
-            root_ddt[i].reserved = 0;
-        }
+        root_ddt[0][i] = (((((uintptr_t)&root_ddt[1][0]) >> 2) & DDTP_PPN_MASK) | PTE_V);
+        root_ddt[1][i] = (((((uintptr_t)&ddt[0]) >> 2) & DDTP_PPN_MASK) | PTE_V);
     }
+
+    ddt[0].tc = test_dc_tc_table[BASIC];
+    ddt[0].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
+    ddt[0].ta = 0;
+    ddt[0].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
 }
 
 void rv_iommu_set_iosatp_bare(void)
@@ -138,8 +131,8 @@ void rv_iommu_set_iosatp_bare(void)
 
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
-        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
-        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
+        ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
+        ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_BARE);
     }
 }
 
@@ -149,8 +142,8 @@ void rv_iommu_set_iosatp_sv39()
 
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
-        root_ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
-        root_ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_SV39);
+        ddt[i].ta = (PSCID_ARRAY[i] << PSCID_OFF);
+        ddt[i].fsc = (((uintptr_t)s1pt) >> 12) | (IOSATP_MODE_SV39);
     }
 }
 
@@ -160,8 +153,8 @@ void rv_iommu_set_iohgatp_bare()
 
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
-        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
-        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
+        ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_BARE);
+        ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
     }
 }
 
@@ -171,8 +164,8 @@ void rv_iommu_set_iohgatp_sv39x4()
 
     for (int i = DID_MIN; i < DID_MAX + 1; i++)
     {
-        root_ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);
-        root_ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
+        ddt[i].iohgatp = (((uintptr_t)s2pt_root) >> 12) | (IOHGATP_MODE_SV39X4);
+        ddt[i].iohgatp |= (GSCID_ARRAY[i] << GSCID_OFF);
     }
 }
 
@@ -184,9 +177,9 @@ void rv_iommu_set_msi_off()
 
         for (int i = DID_MIN; i < DID_MAX + 1; i++)
         {
-            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
-            root_ddt[i].msi_addr_mask = MSI_ADDR_MASK;
-            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
+            ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_OFF);
+            ddt[i].msi_addr_mask = MSI_ADDR_MASK;
+            ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
         }
     }
 }
@@ -199,9 +192,9 @@ void rv_iommu_set_msi_flat()
         
         for (int i = DID_MIN; i < DID_MAX + 1; i++)
         {
-            root_ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);
-            root_ddt[i].msi_addr_pattern = MSI_ADDR_MASK;
-            root_ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
+            ddt[i].msiptp = (((uintptr_t)msi_pt) >> 12) | (MSIPTP_MODE_FLAT);
+            ddt[i].msi_addr_pattern = MSI_ADDR_MASK;
+            ddt[i].msi_addr_pattern = MSI_ADDR_PATTERN;
         }
     }
 }
@@ -441,6 +434,14 @@ void set_iommu_bare()
     // Program ddtp register with DDT mode and root DDT base PPN
     uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_BARE);
 
+    write64((uintptr_t)&iommu->ddtp, ddtp);
+}
+
+void set_iommu_3lvl()
+{
+    // Program ddtp register with DDT mode and root DDT base PPN
+    uintptr_t ddtp = ((((uintptr_t)root_ddt) >> 2) & DDTP_PPN_MASK) | (DDTP_MODE_3LVL);
+    
     write64((uintptr_t)&iommu->ddtp, ddtp);
 }
 

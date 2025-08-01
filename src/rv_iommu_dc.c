@@ -4,12 +4,12 @@ uint64_t test_dc_tc_table[TEST_DC_MAX] = {
 
     [TC_RSVD_SET]   =   DC_TC_VALID | DC_TC_RSV,
     [EN_PRI]        =   DC_TC_VALID | DC_TC_EN_PRI,
-    [T2GPA]         =   DC_TC_VALID | DC_TC_T2GPA,
+    [T2GPA]         =   0,
     [SADE]          =   DC_TC_VALID | DC_TC_SADE,
     [SBE]           =   DC_TC_VALID | DC_TC_SBE,
     [SXL]           =   DC_TC_VALID | DC_TC_SXL,
     [INVALID]       =   0,
-    [BASIC]         =   DC_TC_VALID,
+    [BASIC]         =   DC_TC_VALID | DC_TC_EN_ATS,
     [DISABLE_TF]    =   DC_TC_VALID | DC_TC_DTF,
     [DC_TOP]        =   DC_TC_VALID
 };

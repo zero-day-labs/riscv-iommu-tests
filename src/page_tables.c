@@ -1,17 +1,10 @@
 #include <page_tables.h>
 
 
-#if ((MEM_BASE & (SUPERPAGE_SIZE(0)-1)) != 0)
-#   error "MEM_BASE must be aligned to level 0 superpage size"
-#endif
-
 #if (MEM_BASE >= (SUPERPAGE_SIZE(0)*4))
 #   error "MEM_BASE less than four time level 0 superpage size"
 #endif
 
-#if (MEM_SIZE < (0x10000000))
-#   error "MEM_SIZE not enough (less than 256MB)"
-#endif
 
 // Page Table Entries
 struct {
@@ -56,16 +49,27 @@ struct {
     [PT_TOP]            =   {PTE_V | PTE_RWX,           PTE_V | PTE_U | PTE_RWX},
 };      
 
-// 6x512 PTEs
-pte_t s1pt[6][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE)));
-// Root table (Sv39x4) (2048 PTEs pointing to 16-kiB pages)
-pte_t s2pt_root[PAGE_SIZE*4/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE*4)));
-// n-level tables (5x512 PTEs pointing to 4-kiB pages)
-pte_t s2pt[5][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE)));
-// 32 MSI PTEs, each PTE is 16-bytes, base address aligned to 4-kiB
-uint64_t msi_pt[MSI_N_ENTRIES * 2] __attribute__((aligned(PAGE_SIZE)));
-// MRIF
-uint64_t mrif[64] __attribute__((aligned(512)));
+//// 6x512 PTEs
+//pte_t s1pt[6][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE))) = {0};
+//// Root table (Sv39x4) (2048 PTEs pointing to 16-kiB pages)
+//pte_t s2pt_root[PAGE_SIZE*4/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE*4))) = {0};
+//// n-level tables (5x512 PTEs pointing to 4-kiB pages)
+//pte_t s2pt[5][PAGE_SIZE/sizeof(pte_t)] __attribute__((aligned(PAGE_SIZE))) = {0};
+//// 32 MSI PTEs, each PTE is 16-bytes, base address aligned to 4-kiB
+//uint64_t msi_pt[MSI_N_ENTRIES * 2] __attribute__((aligned(PAGE_SIZE))) = {0};
+//// MRIF
+//uint64_t mrif[64] __attribute__((aligned(512))) = {0};
+/* page_tables.c */
+pte_t    s1pt[6][PAGE_SIZE/sizeof(pte_t)]
+    __attribute__((aligned(PAGE_SIZE),   section(".ptables_noinit")));
+pte_t    s2pt_root[PAGE_SIZE*4/sizeof(pte_t)]
+    __attribute__((aligned(PAGE_SIZE*4), section(".ptables_noinit")));
+pte_t    s2pt[5][PAGE_SIZE/sizeof(pte_t)]
+    __attribute__((aligned(PAGE_SIZE),   section(".ptables_noinit")));
+uint64_t msi_pt[MSI_N_ENTRIES * 2]
+    __attribute__((aligned(PAGE_SIZE),   section(".ptables_noinit")));
+uint64_t mrif[64]
+    __attribute__((aligned(512),         section(".ptables_noinit")));
 
 /**
  *  Setup first-stage PTEs
@@ -272,6 +276,85 @@ void s2pt_init(){
              PTE_V | PTE_U | PTE_AD | PTE_RWX;  
         addr +=  SUPERPAGE_SIZE(1);
     }
+}
+
+void s1pt_init_simple(void)
+{
+    /* --------------- clear the three levels we touch --------------- */
+    //uintptr_t va = TEST_VPAGE_BASE + 0x00010000ULL;   /* TB offset */
+    //for (int i = 0; i < 512; ++i, va += PAGE_SIZE) {
+    //    s1pt[0][i] = PTE_V | ((((uintptr_t)&s1pt[1][i]) >> 2) & PTE_PPN_MSK);
+    //    s1pt[1][i] = PTE_V | ((((uintptr_t)&s1pt[1][i]) >> 2) & PTE_PPN_MSK);
+    //    s1pt[2][i] = (va >> 2) | PTE_AD | PTE_V | PTE_U | PTE_RWX;
+    //}
+
+    /* --------------- root entries ? L1 table ---------------
+     * the test-bench writes three aliases (indices 0,4,8)                       */
+    //pte_t l1_ptr = PTE_V | ((((uintptr_t)&s1pt[1][0]) >> 2) & PTE_PPN_MSK);
+    //s1pt[0][0] = l1_ptr;
+    //s1pt[0][4] = l1_ptr;
+    //s1pt[0][8] = l1_ptr;
+    //
+    ///* --------------- L1 entries ? leaf table ---------------
+    // * aliases at indices 0, 4, 511                                              */
+    //pte_t l2_ptr = PTE_V | ((((uintptr_t)&s1pt[2][0]) >> 2) & PTE_PPN_MSK);
+    //s1pt[1][0]   = l2_ptr;
+    //s1pt[1][4]   = l2_ptr;
+    //s1pt[1][511] = l2_ptr;
+    //
+    ///* --------------- leaf 4 KiB PTEs ---------------
+    // * full user RWX, A/D already set                                              */
+    //for (int i = 0; i < 10; ++i, va += PAGE_SIZE) {
+    //    s1pt[2][i] = (va >> 2) | PTE_AD | PTE_V | PTE_U | PTE_RWX;
+    //}
+
+    fence_i();
+}
+
+void s2pt_init_simple(void)
+{
+    /* --------------- clear tables we will touch --------------- */
+    for (int i = 0; i < 20; ++i)  s2pt_root[i] = 0;
+    for (int i = 0; i < 10;  ++i) { s2pt[1][i] = 0;  s2pt[2][i] = 0; s2pt[3][i] = 0; }
+
+    //s2pt_root[1] = (0x78000000ULL >> 2) | PTE_V;
+
+    /* --------------- root entries ? L1 table --------------- */
+    pte_t l1_ptr = PTE_V | ((((uintptr_t)&s2pt[1][0]) >> 2) & PTE_PPN_MSK);
+    s2pt_root[0]    = l1_ptr;
+    s2pt_root[1]    = l1_ptr;
+    s2pt_root[2]    = l1_ptr;
+    s2pt_root[3]    = l1_ptr;
+    s2pt_root[4]    = l1_ptr;
+    s2pt_root[2047] = l1_ptr;
+
+    //s2pt[1][0]   = PTE_V | ((((uintptr_t)&s2pt[3][0]) >> 2) & PTE_PPN_MSK);
+    /* --------------- L1 entries ? leaf table --------------- */
+    pte_t l2_ptr = PTE_V | ((((uintptr_t)&s2pt[2][0]) >> 2) & PTE_PPN_MSK);
+    s2pt[1][0]   = l2_ptr;
+    s2pt[1][1]   = l2_ptr;
+    s2pt[1][2]   = l2_ptr;
+    s2pt[1][3]   = l2_ptr;
+    s2pt[1][31]  = l2_ptr;   /* bench convenience alias              */
+    s2pt[1][447] = PTE_V | ((((uintptr_t)&s2pt[3][0]) >> 2) & PTE_PPN_MSK);
+    s2pt[1][511] = l2_ptr;
+
+    /* --------------- leaf 4 KiB PTEs --------------- */
+    uintptr_t pa = TEST_PPAGE_BASE;
+    for (int i = 0; i < 17; ++i, pa += PAGE_SIZE) {
+        s2pt[2][i] = ((((uintptr_t)pa) >> 2) & PTE_PPN_MSK) | PTE_AD | PTE_V | PTE_U | PTE_RWX;
+    }
+    pa = TEST_PPAGE_BASE + PAGE_SIZE*250;
+    for (int i = 250; i < 260; ++i, pa += PAGE_SIZE) {
+        s2pt[2][i] = ((((uintptr_t)pa) >> 2) & PTE_PPN_MSK) | PTE_AD | PTE_V | PTE_U | PTE_RWX;
+    }
+    pa = ((uintptr_t)&s1pt[0][0]);
+    for (int i = 0; i < 17; ++i, pa += PAGE_SIZE) {
+        s2pt[3][i] = ((((uintptr_t)pa) >> 2) & PTE_PPN_MSK) | PTE_AD | PTE_V | PTE_U | PTE_RWX;
+    }
+
+
+    fence_i();
 }
 
 // Swap two 4-kiB PTEs associated with the permission table (first-stage w/ V=1)

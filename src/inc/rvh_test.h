@@ -18,7 +18,7 @@
  *  Default value of LOG_INFO is defined
  */
 #ifndef LOG_LEVEL
-#define LOG_LEVEL   LOG_INFO
+#define LOG_LEVEL   LOG_NONE
 #endif
 
 /**
