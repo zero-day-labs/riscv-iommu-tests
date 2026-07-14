@@ -969,15 +969,21 @@ bool hpm(){
  *  The write of the MSI notice is verified
  * 
  *  TEST 2
- *  Trigger a two-stage address translation using a GVA->GPA mapping that maps to an MSI PTE in MRIF mode
- *  The data of this transfer is the interrupt ID of an MRIF with IE clear. Thus, the MSI notice is not written
- * 
+ *  Repeat TEST 1 with IP already set. The MSI notice is still written.
+ *
  *  TEST 3
+ *  Trigger a two-stage address translation using a GVA->GPA mapping that maps to an MSI PTE in MRIF mode
+ *  The data of this transfer is the interrupt ID of an MRIF with IE clear. The MSI notice is written.
+ * 
+ *  TEST 4
+ *  Repeat TEST 3 with IP already set. The MSI notice is still written.
+ *
+ *  TEST 5
  *  Trigger an MSI translation with an MSI PTE in MRIF mode, and custom bit set (misconfigured)
  *  Check fault record written to the FQ
  * 
- *  TEST 4
- *  Repeat the same transfer of TEST 2, but with an invalid interrupt identity (bits [31:11] not zero)
+ *  TEST 6
+ *  Repeat TEST 1 with an invalid interrupt identity (bits [31:11] not zero)
  */
 bool mrif_support(){
 
@@ -1023,7 +1029,22 @@ bool mrif_support(){
     check = (read32(NOTICE_ADDR_1) == NOTICE_DATA);
     TEST_ASSERT("MRIF with Second-stage only: MSI notice matches", check);
 
-    //# TEST 2: MRIF transaction with two-stage and IE disabled (no MSI notice)
+    //# TEST 2: Repeat with IP set and IE enabled
+    write32((uintptr_t)NOTICE_ADDR_1, 0);
+
+    idma_setup_addr(dma_ut, read_vaddr1, write_vaddr1);
+    if (idma_exec_transfer(dma_ut) != 0)
+        {ERROR("iDMA misconfigured")}
+
+    for (size_t i = 0; i < 100; i++)
+        ;
+
+    check = ((mrif[INT_IP_IDX_1] & INT_MASK_1) != 0);
+    TEST_ASSERT("MRIF with IP set and IE set: IP bit remains set", check);
+    check = (read32(NOTICE_ADDR_1) == NOTICE_DATA);
+    TEST_ASSERT("MRIF with IP set and IE set: MSI notice matches", check);
+
+    //# TEST 3: MRIF transaction with two-stage and IE disabled
     // Enable first-stage translation
     rv_iommu_set_iosatp_sv39();
     VERBOSE("IOMMU 1LVL mode | iohgatp: Sv39x4 | iosatp: Sv39 | msiptp: Flat");
@@ -1051,11 +1072,26 @@ bool mrif_support(){
     // Check IP bit
     check = ((mrif[INT_IP_IDX_2] & INT_MASK_2) != 0);
     TEST_ASSERT("MRIF with two-stage translation: IP bit set", check);
-    // Check MSI notice (not written)
-    check = (read32(NOTICE_ADDR_2) == 0);
-    TEST_ASSERT("MRIF with two-stage translation: MSI notice not written as IE is clear", check);
+    // Check MSI notice
+    check = (read32(NOTICE_ADDR_2) == NOTICE_DATA);
+    TEST_ASSERT("MRIF with two-stage translation: MSI notice matches", check);
 
-    //# TEST 3: MRIF transaction with misconfigured MSI PTE (custom bit set)
+    //# TEST 4: Repeat with IP set and IE disabled
+    write32((uintptr_t)NOTICE_ADDR_2, 0);
+
+    idma_setup_addr(dma_ut, read_vaddr2, write_vaddr2);
+    if (idma_exec_transfer(dma_ut) != 0)
+        {ERROR("iDMA misconfigured")}
+
+    for (size_t i = 0; i < 100; i++)
+        ;
+
+    check = ((mrif[INT_IP_IDX_2] & INT_MASK_2) != 0);
+    TEST_ASSERT("MRIF with IP set and IE clear: IP bit remains set", check);
+    check = (read32(NOTICE_ADDR_2) == NOTICE_DATA);
+    TEST_ASSERT("MRIF with IP set and IE clear: MSI notice matches", check);
+
+    //# TEST 5: MRIF transaction with misconfigured MSI PTE (custom bit set)
     // Get addresses
     uintptr_t read_vaddr3 = virt_page_base(MSI_R5);
 
@@ -1085,7 +1121,7 @@ bool mrif_support(){
     // Clear ipsr.fip
     rv_iommu_clear_ipsr_fip();
 
-    //# TEST 4: Transaction discarding mechanism using an invalid interrupt ID
+    //# TEST 6: Transaction discarding mechanism using an invalid interrupt ID
 
     fence_i();
     write32(read_paddr1, 0xFFFUL);          // Invalid int. ID
@@ -1334,4 +1370,3 @@ bool latency_test(){
 
     TEST_END();
 }
-
